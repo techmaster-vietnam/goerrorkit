@@ -73,13 +73,26 @@ func getActualPanicLocation() (file string, line int, function string) {
 	stack := string(debug.Stack())
 	lines := strings.Split(stack, "\n")
 
+	// DEBUG: In ra stack trace để debug
+	fmt.Println("=== DEBUG STACK TRACE ===")
+	for i, line := range lines {
+		fmt.Printf("[%d] %q\n", i, line)
+	}
+	fmt.Println("=== END DEBUG ===")
+
 	panicFound := false
 	for i := 0; i < len(lines); i++ {
 		l := strings.TrimSpace(lines[i])
 
+		// DEBUG: In ra quá trình tìm kiếm
+		if panicFound {
+			fmt.Printf("[DEBUG] Checking line: %q, isUserFunction: %v\n", l, isUserFunction(l))
+		}
+
 		// Tìm dòng "panic"
 		if !panicFound && strings.HasPrefix(l, "panic(") {
 			panicFound = true
+			fmt.Println("[DEBUG] Found panic line!")
 			continue
 		}
 
