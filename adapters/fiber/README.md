@@ -5,7 +5,7 @@ Adapter cho [Fiber v2](https://github.com/gofiber/fiber) web framework.
 ## Cài đặt
 
 ```bash
-go get github.com/cuong/goerrorkit
+go get github.com/techmaster-vietnam/goerrorkit
 go get github.com/gofiber/fiber/v2
 ```
 
@@ -15,9 +15,9 @@ go get github.com/gofiber/fiber/v2
 package main
 
 import (
-    "github.com/cuong/goerrorkit/adapters/fiber"
-    "github.com/cuong/goerrorkit/config"
-    "github.com/cuong/goerrorkit/core"
+    "github.com/techmaster-vietnam/goerrorkit/adapters/fiber"
+    "github.com/techmaster-vietnam/goerrorkit/config"
+    "github.com/techmaster-vietnam/goerrorkit/core"
     fiberv2 "github.com/gofiber/fiber/v2"
     "github.com/gofiber/fiber/v2/middleware/requestid"
 )

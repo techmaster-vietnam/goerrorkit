@@ -3,12 +3,12 @@ package main
 import (
 	"fmt"
 
-	"github.com/cuong/goerrorkit/adapters/fiber"
-	"github.com/cuong/goerrorkit/config"
-	"github.com/cuong/goerrorkit/core"
 	fiberv2 "github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
+	"github.com/techmaster-vietnam/goerrorkit/adapters/fiber"
+	"github.com/techmaster-vietnam/goerrorkit/config"
+	"github.com/techmaster-vietnam/goerrorkit/core"
 )
 
 func main() {
@@ -25,7 +25,7 @@ func main() {
 	})
 
 	// 2. Configure stack trace for this application
-	// Replace "github.com/cuong/goerrorkit/examples/fiber-demo" with your app package
+	// Replace "github.com/techmaster-vietnam/goerrorkit/examples/fiber-demo" with your app package
 	core.ConfigureForApplication("main")
 
 	// 3. Create Fiber app

@@ -1,8 +1,8 @@
 package fiber
 
 import (
-	"github.com/cuong/goerrorkit/core"
 	fiberv2 "github.com/gofiber/fiber/v2"
+	"github.com/techmaster-vietnam/goerrorkit/core"
 )
 
 // FiberContext wrap Fiber's context để implement core.HTTPContext interface

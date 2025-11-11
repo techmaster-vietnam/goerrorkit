@@ -1,8 +1,8 @@
 package fiber
 
 import (
-	"github.com/cuong/goerrorkit/core"
 	fiberv2 "github.com/gofiber/fiber/v2"
+	"github.com/techmaster-vietnam/goerrorkit/core"
 )
 
 // ErrorHandler là Fiber middleware để xử lý panic và errors

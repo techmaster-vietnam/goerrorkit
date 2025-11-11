@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/cuong/goerrorkit/core"
 	"github.com/sirupsen/logrus"
+	"github.com/techmaster-vietnam/goerrorkit/core"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 

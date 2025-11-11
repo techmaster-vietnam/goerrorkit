@@ -3,7 +3,7 @@
 ## Installation
 
 ```bash
-go get github.com/cuong/goerrorkit
+go get github.com/techmaster-vietnam/goerrorkit
 ```
 
 ## Basic Setup
@@ -14,7 +14,7 @@ go get github.com/cuong/goerrorkit
 package main
 
 import (
-    "github.com/cuong/goerrorkit/config"
+    "github.com/techmaster-vietnam/goerrorkit/config"
 )
 
 func main() {
@@ -38,7 +38,7 @@ func main() {
 ### Bước 2: Cấu hình Stack Trace
 
 ```go
-import "github.com/cuong/goerrorkit/core"
+import "github.com/techmaster-vietnam/goerrorkit/core"
 
 func main() {
     // ...
@@ -54,7 +54,7 @@ func main() {
 
 ```go
 import (
-    "github.com/cuong/goerrorkit/adapters/fiber"
+    "github.com/techmaster-vietnam/goerrorkit/adapters/fiber"
     fiberv2 "github.com/gofiber/fiber/v2"
     "github.com/gofiber/fiber/v2/middleware/requestid"
 )
@@ -123,9 +123,9 @@ func handler(c *fiber.Ctx) error {
 package main
 
 import (
-    "github.com/cuong/goerrorkit/adapters/fiber"
-    "github.com/cuong/goerrorkit/config"
-    "github.com/cuong/goerrorkit/core"
+    "github.com/techmaster-vietnam/goerrorkit/adapters/fiber"
+    "github.com/techmaster-vietnam/goerrorkit/config"
+    "github.com/techmaster-vietnam/goerrorkit/core"
     fiberv2 "github.com/gofiber/fiber/v2"
     "github.com/gofiber/fiber/v2/middleware/requestid"
 )

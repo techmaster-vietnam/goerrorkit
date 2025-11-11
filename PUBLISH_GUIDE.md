@@ -132,8 +132,8 @@ replace github.com/YOUR_USERNAME/goerrorkit => ../..
 ### 4.2. Commit và push changes
 
 ```bash
-# Replace tất cả "github.com/cuong/goerrorkit" bằng path thực của bạn
-find . -type f -name "*.go" -o -name "go.mod" | xargs sed -i '' 's|github.com/cuong/goerrorkit|github.com/YOUR_USERNAME/goerrorkit|g'
+# Replace tất cả "github.com/techmaster-vietnam/goerrorkit" bằng path thực của bạn
+find . -type f -name "*.go" -o -name "go.mod" | xargs sed -i '' 's|github.com/techmaster-vietnam/goerrorkit|github.com/YOUR_USERNAME/goerrorkit|g'
 
 # Commit
 git add .

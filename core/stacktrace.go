@@ -63,9 +63,9 @@ func ConfigureForApplication(appPackage string) {
 	defaultConfig.IncludePackages = []string{appPackage}
 	// Auto-skip thư viện goerrorkit
 	defaultConfig.SkipPackages = append(defaultConfig.SkipPackages,
-		"github.com/cuong/goerrorkit/core",
-		"github.com/cuong/goerrorkit/adapters",
-		"github.com/cuong/goerrorkit/config",
+		"github.com/techmaster-vietnam/goerrorkit/core",
+		"github.com/techmaster-vietnam/goerrorkit/adapters",
+		"github.com/techmaster-vietnam/goerrorkit/config",
 	)
 }
 

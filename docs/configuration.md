@@ -122,7 +122,7 @@ core.SetStackTraceConfig(core.StackTraceConfig{
 Bạn có thể implement interface `core.Logger` để dùng logger khác (zap, zerolog, etc.):
 
 ```go
-import "github.com/cuong/goerrorkit/core"
+import "github.com/techmaster-vietnam/goerrorkit/core"
 
 type MyCustomLogger struct {
     // Your logger instance

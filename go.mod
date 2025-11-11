@@ -1,4 +1,4 @@
-module github.com/cuong/goerrorkit
+module github.com/techmaster-vietnam/goerrorkit
 
 go 1.21
 
@@ -21,4 +21,3 @@ require (
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
 )
-

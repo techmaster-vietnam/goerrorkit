@@ -17,7 +17,7 @@
 ## 📦 Installation
 
 ```bash
-go get github.com/cuong/goerrorkit
+go get github.com/techmaster-vietnam/goerrorkit
 ```
 
 ## 🚀 Quick Start
@@ -28,9 +28,9 @@ go get github.com/cuong/goerrorkit
 package main
 
 import (
-    "github.com/cuong/goerrorkit/adapters/fiber"
-    "github.com/cuong/goerrorkit/config"
-    "github.com/cuong/goerrorkit/core"
+    "github.com/techmaster-vietnam/goerrorkit/adapters/fiber"
+    "github.com/techmaster-vietnam/goerrorkit/config"
+    "github.com/techmaster-vietnam/goerrorkit/core"
     fiberv2 "github.com/gofiber/fiber/v2"
     "github.com/gofiber/fiber/v2/middleware/requestid"
 )
@@ -257,13 +257,13 @@ goerrorkit/
 
 ### Currently Supported
 
-- ✅ **Fiber v2** - `github.com/cuong/goerrorkit/adapters/fiber`
+- ✅ **Fiber v2** - `github.com/techmaster-vietnam/goerrorkit/adapters/fiber`
 
 ### Coming Soon
 
-- 🚧 **Gin** - `github.com/cuong/goerrorkit/adapters/gin`
-- 🚧 **Echo** - `github.com/cuong/goerrorkit/adapters/echo`
-- 🚧 **Chi** - `github.com/cuong/goerrorkit/adapters/chi`
+- 🚧 **Gin** - `github.com/techmaster-vietnam/goerrorkit/adapters/gin`
+- 🚧 **Echo** - `github.com/techmaster-vietnam/goerrorkit/adapters/echo`
+- 🚧 **Chi** - `github.com/techmaster-vietnam/goerrorkit/adapters/chi`
 
 ## 📚 Documentation
 
