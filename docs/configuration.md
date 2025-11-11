@@ -117,6 +117,104 @@ goerrorkit.SetStackTraceConfig(goerrorkit.StackTraceConfig{
 })
 ```
 
+## Thêm Dữ Liệu Đặc Thù vào Error
+
+### Tại sao cần tách dữ liệu?
+
+Khi log lỗi, cần phân biệt rõ ràng giữa:
+- **Metadata hệ thống**: error_type, file, function, path, timestamp - thông tin cơ bản của lỗi
+- **Dữ liệu đặc thù**: product_id, user_id, quantity - thông tin ngữ cảnh của tình huống
+
+Trước đây, các trường này bị trộn lẫn, gây khó đọc. Bây giờ dữ liệu đặc thù được tách riêng vào trường `data`.
+
+### Validation Error - Parameter data (thường cần data)
+
+```go
+func ReserveProduct(productID string, quantity int) error {
+    stock := getStock(productID)
+    
+    if stock < quantity {
+        return goerrorkit.NewValidationError(
+            fmt.Sprintf("Không đủ hàng: yêu cầu %d, còn lại %d", quantity, stock),
+            map[string]interface{}{
+                "product_id": productID,
+                "product_name": "iPhone 15",
+                "requested": quantity,
+                "available_stock": stock,
+            },
+        )
+    }
+    // ...
+}
+```
+
+### Các Error Khác - Sử dụng .WithData() (optional)
+
+```go
+func CreateOrder(orderID string) error {
+    // Không cần data - clean và simple
+    if product == nil {
+        return goerrorkit.NewBusinessError(404, "Product not found")
+    }
+    
+    // Cần data - dùng .WithData()
+    err := processPayment()
+    if err != nil {
+        return goerrorkit.NewBusinessError(400, "Payment failed").WithData(map[string]interface{}{
+            "order_id": orderID,
+            "user_id": "user_123",
+            "amount": 1500000,
+        })
+    }
+    // ...
+}
+```
+
+**Tại sao khác nhau?**
+- **Validation errors**: ~90% cases cần data (field name, constraints) → parameter required
+- **Business/System/Auth errors**: ~80% cases không cần data → fluent API optional
+
+### Kết quả log
+
+**Trước khi tách:**
+```json
+{
+  "available_stock": 0,
+  "error_type": "VALIDATION",
+  "file": "product_service.go:70",
+  "function": "services.(*ProductService).ReserveProduct",
+  "level": "error",
+  "message": "Không đủ hàng: yêu cầu 1, còn lại 0",
+  "path": "POST /order/create",
+  "product_id": "123",
+  "product_name": "iPhone 15",
+  "requested": 1,
+  "status_code": 400
+}
+```
+
+**Sau khi tách:**
+```json
+{
+  "error_type": "VALIDATION",
+  "file": "product_service.go:70",
+  "function": "services.(*ProductService).ReserveProduct",
+  "level": "error",
+  "message": "Không đủ hàng: yêu cầu 1, còn lại 0",
+  "path": "POST /order/create",
+  "status_code": 400,
+  "timestamp": "2025-11-11T15:58:00+07:00",
+  "data": {
+    "product_id": "123",
+    "product_name": "iPhone 15",
+    "requested": 1,
+    "available_stock": 0
+  }
+}
+```
+
+Dễ đọc hơn rất nhiều! Metadata hệ thống ở ngoài, dữ liệu đặc thù được nhóm trong trường `data`.
+
 ## Custom Logger Implementation
 
 Bạn có thể implement interface `goerrorkit.Logger` để dùng logger khác (zap, zerolog, etc.):

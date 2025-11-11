@@ -22,7 +22,8 @@ type AppError struct {
 	Type      ErrorType              // Loại lỗi
 	Code      int                    // HTTP status code
 	Message   string                 // Message hiển thị
-	Details   map[string]interface{} // Thông tin chi tiết (file, line, function, stack trace)
+	Details   map[string]interface{} // Thông tin metadata hệ thống (file, line, function, stack trace)
+	Data      map[string]interface{} // Dữ liệu đặc thù của tình huống (product_id, user_id, etc.)
 	Cause     error                  // Lỗi gốc (nếu có)
 	RequestID string                 // Request ID để trace
 }
@@ -37,17 +38,41 @@ func (e *AppError) Unwrap() error {
 	return e.Cause
 }
 
+// WithData thêm dữ liệu đặc thù của tình huống vào error
+// Dữ liệu này sẽ được log trong trường "data" riêng biệt
+//
+// Example:
+//
+//	return goerrorkit.NewValidationError("Không đủ hàng", nil).WithData(map[string]interface{}{
+//	    "product_id": "123",
+//	    "product_name": "iPhone 15",
+//	    "requested": 1,
+//	    "available_stock": 0,
+//	})
+func (e *AppError) WithData(data map[string]interface{}) *AppError {
+	e.Data = data
+	return e
+}
+
 // ============================================================================
 // Factory Functions - Tạo Error Dễ Dàng
 // ============================================================================
 
 // NewBusinessError tạo lỗi business logic với stack trace chính xác
+// Sử dụng .WithData() để thêm dữ liệu đặc thù nếu cần
 //
 // Example:
 //
+//	// Không có data
 //	if product.Stock == 0 {
 //	    return goerrorkit.NewBusinessError(404, "Product out of stock")
 //	}
+//
+//	// Với custom data
+//	return goerrorkit.NewBusinessError(404, "Product out of stock").WithData(map[string]interface{}{
+//	    "product_id": "123",
+//	    "stock": 0,
+//	})
 func NewBusinessError(code int, msg string) *AppError {
 	file, line, function := getCallerInfo(1)
 	return &AppError{
@@ -62,12 +87,19 @@ func NewBusinessError(code int, msg string) *AppError {
 }
 
 // NewSystemError tạo lỗi hệ thống với cause và stack trace
+// Sử dụng .WithData() để thêm dữ liệu đặc thù nếu cần
 //
 // Example:
 //
 //	if err := db.Connect(); err != nil {
 //	    return goerrorkit.NewSystemError(err)
 //	}
+//
+//	// Với custom data
+//	return goerrorkit.NewSystemError(err).WithData(map[string]interface{}{
+//	    "database": "postgres",
+//	    "host": "localhost:5432",
+//	})
 func NewSystemError(err error) *AppError {
 	file, line, function := getCallerInfo(1)
 	return &AppError{
@@ -82,7 +114,8 @@ func NewSystemError(err error) *AppError {
 	}
 }
 
-// NewValidationError tạo lỗi validation với custom details
+// NewValidationError tạo lỗi validation với custom data
+// Data sẽ được log trong trường "data" riêng biệt, tách biệt với metadata hệ thống
 //
 // Example:
 //
@@ -93,28 +126,34 @@ func NewSystemError(err error) *AppError {
 //	        "received": age,
 //	    })
 //	}
-func NewValidationError(msg string, details map[string]interface{}) *AppError {
+func NewValidationError(msg string, data map[string]interface{}) *AppError {
 	file, line, function := getCallerInfo(1)
-	if details == nil {
-		details = make(map[string]interface{})
-	}
-	details["function"] = function
-	details["file"] = fmt.Sprintf("%s:%d", file, line)
 	return &AppError{
 		Type:    ValidationError,
 		Code:    400,
 		Message: msg,
-		Details: details,
+		Details: map[string]interface{}{
+			"function": function,
+			"file":     fmt.Sprintf("%s:%d", file, line),
+		},
+		Data: data,
 	}
 }
 
 // NewAuthError tạo lỗi authentication/authorization với stack trace
+// Sử dụng .WithData() để thêm dữ liệu đặc thù nếu cần
 //
 // Example:
 //
 //	if token == "" {
 //	    return goerrorkit.NewAuthError(401, "Unauthorized: Missing token")
 //	}
+//
+//	// Với custom data
+//	return goerrorkit.NewAuthError(401, "Invalid token").WithData(map[string]interface{}{
+//	    "user_id": "123",
+//	    "token_expired": true,
+//	})
 func NewAuthError(code int, msg string) *AppError {
 	file, line, function := getCallerInfo(1)
 	return &AppError{
@@ -129,12 +168,19 @@ func NewAuthError(code int, msg string) *AppError {
 }
 
 // NewExternalError tạo lỗi từ external service với cause
+// Sử dụng .WithData() để thêm dữ liệu đặc thù nếu cần
 //
 // Example:
 //
 //	if err := paymentGateway.Charge(); err != nil {
 //	    return goerrorkit.NewExternalError(502, "Payment gateway unavailable", err)
 //	}
+//
+//	// Với custom data
+//	return goerrorkit.NewExternalError(502, "Payment failed", err).WithData(map[string]interface{}{
+//	    "gateway": "stripe",
+//	    "amount": 1000,
+//	})
 func NewExternalError(code int, msg string, cause error) *AppError {
 	file, line, function := getCallerInfo(1)
 	return &AppError{

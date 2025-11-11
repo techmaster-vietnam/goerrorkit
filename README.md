@@ -10,6 +10,7 @@
 - ✅ **Multiple framework support** - Adapters cho Fiber, Gin, Echo, Chi (coming soon)
 - ✅ **Custom error types** - Business, System, Validation, Auth, External errors
 - ✅ **Structured logging** - JSON format với full context
+- ✅ **Tách biệt metadata và data** - Trường `data` riêng cho dữ liệu đặc thù, giúp log dễ đọc
 - ✅ **File logging với rotation** - Tích hợp lumberjack
 - ✅ **Caller info tracking** - Tự động capture file:line cho mọi error
 - ✅ **Configurable** - Customize stack trace filtering, logger, etc.
@@ -114,26 +115,31 @@ goerrorkit.SetStackTraceConfig(goerrorkit.StackTraceConfig{
 ### Business Error (4xx)
 
 ```go
-// Product không tồn tại
+// Product không tồn tại (không cần data)
 if product == nil {
     return goerrorkit.NewBusinessError(404, "Product not found")
 }
 
-// Hết hàng
+// Hết hàng (với custom data)
 if product.Stock == 0 {
-    return goerrorkit.NewBusinessError(400, "Product out of stock")
+    return goerrorkit.NewBusinessError(400, "Product out of stock").WithData(map[string]interface{}{
+        "product_id": productID,
+        "stock": 0,
+    })
 }
 ```
 
 ### System Error (5xx)
 
 ```go
-// Database error
+// Database error (với custom data)
 if err := db.Connect(); err != nil {
-    return goerrorkit.NewSystemError(err)
+    return goerrorkit.NewSystemError(err).WithData(map[string]interface{}{
+        "database": "postgres",
+    })
 }
 
-// File system error
+// File system error (không cần data)
 if err := os.ReadFile("config.json"); err != nil {
     return goerrorkit.NewSystemError(err)
 }
@@ -157,42 +163,69 @@ if user.Email == "" || user.Name == "" {
         "required": []string{"email", "name"},
     })
 }
+
+// Thêm dữ liệu đặc thù với .WithData() (fluent API)
+if stock < requested {
+    return goerrorkit.NewBusinessError(400, "Insufficient stock").WithData(map[string]interface{}{
+        "product_id": productID,
+        "requested": requested,
+        "available": stock,
+    })
+}
 ```
+
+**Lưu ý:** 
+- Validation error thường cần data → truyền trực tiếp vào parameter
+- Các error khác thường không cần → dùng `.WithData()` khi cần
+- Dữ liệu được log trong trường `data` riêng biệt, tách biệt với metadata hệ thống
 
 ### Auth Error (401, 403)
 
 ```go
-// Missing token
+// Missing token (không cần data)
 if token == "" {
     return goerrorkit.NewAuthError(401, "Unauthorized: Missing token")
 }
 
-// Invalid token
+// Invalid token (với custom data)
 if !isValidToken(token) {
-    return goerrorkit.NewAuthError(401, "Unauthorized: Invalid token")
+    return goerrorkit.NewAuthError(401, "Unauthorized: Invalid token").WithData(map[string]interface{}{
+        "token_type": getTokenType(token),
+    })
 }
 
-// Insufficient permissions
+// Insufficient permissions (với custom data)
 if !hasPermission(user, "admin") {
-    return goerrorkit.NewAuthError(403, "Forbidden: Insufficient permissions")
+    return goerrorkit.NewAuthError(403, "Forbidden: Insufficient permissions").WithData(map[string]interface{}{
+        "user_id": user.ID,
+        "required_role": "admin",
+    })
 }
 ```
 
 ### External Error (502-504)
 
 ```go
-// Payment gateway error
+// Payment gateway error (với custom data)
 if err := paymentGateway.Charge(amount); err != nil {
-    return goerrorkit.NewExternalError(502, "Payment gateway unavailable", err)
+    return goerrorkit.NewExternalError(502, "Payment gateway unavailable", err).WithData(map[string]interface{}{
+        "gateway": "stripe",
+        "amount": amount,
+    })
 }
 
-// Third-party API timeout
+// Third-party API timeout (với custom data)
 if err := apiClient.Call(); err != nil {
-    return goerrorkit.NewExternalError(504, "External API timeout", err)
+    return goerrorkit.NewExternalError(504, "External API timeout", err).WithData(map[string]interface{}{
+        "api_endpoint": "/users",
+        "timeout": "30s",
+    })
 }
 ```
 
-## 📊 Log Output Example
+## 📊 Log Output Examples
+
+### Panic Log
 
 Khi panic xảy ra, bạn sẽ nhận được log chi tiết như sau:
 
@@ -216,6 +249,32 @@ Khi panic xảy ra, bạn sẽ nhận được log chi tiết như sau:
 ```
 
 **Chú ý:** `file: "main.go:94"` là **CHÍNH XÁC** dòng code gây panic, không phải dòng gọi hàm!
+
+### Validation Error với Data
+
+Khi có validation error với custom data:
+
+```json
+{
+  "timestamp": "2025-11-11T15:58:00+07:00",
+  "level": "error",
+  "message": "Không đủ hàng: yêu cầu 1, còn lại 0",
+  "error_type": "VALIDATION",
+  "status_code": 400,
+  "path": "POST /order/create",
+  "request_id": "c8e1aa21-9f08-4e73-809b-f3937266fe22",
+  "function": "services.(*ProductService).ReserveProduct",
+  "file": "product_service.go:70",
+  "data": {
+    "product_id": "123",
+    "product_name": "iPhone 15",
+    "requested": 1,
+    "available_stock": 0
+  }
+}
+```
+
+**Ưu điểm:** Dữ liệu đặc thù được nhóm trong trường `data`, tách biệt với metadata hệ thống, giúp log dễ đọc và phân tích hơn!
 
 ## 🎯 Comparison với các thư viện khác
 

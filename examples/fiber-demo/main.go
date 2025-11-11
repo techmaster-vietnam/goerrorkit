@@ -148,7 +148,9 @@ func businessErrorHandler(c *fiberv2.Ctx) error {
 
 	// Simulate product not found
 	if productID == "123" {
-		return goerrorkit.NewBusinessError(404, fmt.Sprintf("Product ID=%s not found", productID))
+		return goerrorkit.NewBusinessError(404, fmt.Sprintf("Product ID=%s not found", productID)).WithData(map[string]interface{}{
+			"product_id": productID,
+		})
 	}
 
 	return c.JSON(fiberv2.Map{
@@ -160,7 +162,10 @@ func businessErrorHandler(c *fiberv2.Ctx) error {
 func systemErrorHandler(c *fiberv2.Ctx) error {
 	// Simulate database connection error
 	err := fmt.Errorf("connection refused: database is down")
-	return goerrorkit.NewSystemError(err)
+	return goerrorkit.NewSystemError(err).WithData(map[string]interface{}{
+		"database": "postgres",
+		"host":     "localhost:5432",
+	})
 }
 
 func validationErrorHandler(c *fiberv2.Ctx) error {
@@ -207,13 +212,18 @@ func authErrorHandler(c *fiberv2.Ctx) error {
 
 	// Simulate invalid token
 	if token != "Bearer valid-token-123" {
-		return goerrorkit.NewAuthError(401, "Unauthorized: Invalid token")
+		return goerrorkit.NewAuthError(401, "Unauthorized: Invalid token").WithData(map[string]interface{}{
+			"token_length": len(token),
+		})
 	}
 
 	// Simulate permission check
 	role := c.Get("X-User-Role")
 	if role != "admin" {
-		return goerrorkit.NewAuthError(403, "Forbidden: Insufficient permissions")
+		return goerrorkit.NewAuthError(403, "Forbidden: Insufficient permissions").WithData(map[string]interface{}{
+			"required_role": "admin",
+			"user_role":     role,
+		})
 	}
 
 	return c.JSON(fiberv2.Map{
@@ -246,5 +256,8 @@ func externalErrorHandler(c *fiberv2.Ctx) error {
 		message = "External service unavailable"
 	}
 
-	return goerrorkit.NewExternalError(statusCode, message, err)
+	return goerrorkit.NewExternalError(statusCode, message, err).WithData(map[string]interface{}{
+		"service": service,
+		"timeout": "30s",
+	})
 }

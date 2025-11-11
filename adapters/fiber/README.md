@@ -42,8 +42,15 @@ func main() {
     })
 
     app.Get("/error", func(c *fiberv2.Ctx) error {
-        // Custom error với stack trace
+        // Custom error với stack trace (clean!)
         return goerrorkit.NewBusinessError(404, "Resource not found")
+    })
+    
+    app.Get("/error-with-data", func(c *fiberv2.Ctx) error {
+        // Với custom data (dùng .WithData() khi cần)
+        return goerrorkit.NewBusinessError(404, "Product not found").WithData(map[string]interface{}{
+            "product_id": "123",
+        })
     })
 
     app.Listen(":3000")

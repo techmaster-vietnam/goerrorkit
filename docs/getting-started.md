@@ -83,7 +83,9 @@ func main() {
 func handler(c *fiber.Ctx) error {
     product := findProduct(id)
     if product == nil {
-        return goerrorkit.NewBusinessError(404, "Product not found")
+        return goerrorkit.NewBusinessError(404, "Product not found").WithData(map[string]interface{}{
+            "product_id": id,
+        })
     }
     return c.JSON(product)
 }
@@ -116,6 +118,8 @@ func handler(c *fiber.Ctx) error {
     // ...
 }
 ```
+
+**Lưu ý:** Dữ liệu truyền vào sẽ được log trong trường `data` riêng biệt, tách biệt với metadata hệ thống (function, file, error_type, etc.).
 
 ## Complete Example
 

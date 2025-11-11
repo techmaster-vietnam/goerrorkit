@@ -42,17 +42,20 @@ func LogError(appErr *AppError, requestPath string) {
 		return
 	}
 
-	// Chuẩn bị log fields
+	// Chuẩn bị log fields với metadata cơ bản
 	fields := map[string]interface{}{
-		"error_type":  string(appErr.Type),
-		"status_code": appErr.Code,
-		"path":        requestPath,
-		"request_id":  appErr.RequestID,
+		"error_type": string(appErr.Type),
+		"path":       requestPath,
 	}
 
-	// Thêm details nếu có
+	// Thêm metadata hệ thống từ Details (function, file, stack trace)
 	for k, v := range appErr.Details {
 		fields[k] = v
+	}
+
+	// Thêm dữ liệu đặc thù vào trường "data" riêng biệt (nếu có)
+	if len(appErr.Data) > 0 {
+		fields["data"] = appErr.Data
 	}
 
 	// Thêm cause nếu có
@@ -68,9 +71,8 @@ func LogError(appErr *AppError, requestPath string) {
 // Chỉ trả về thông tin cần thiết, không expose internal details
 func FormatErrorResponse(appErr *AppError) map[string]interface{} {
 	return map[string]interface{}{
-		"error":      appErr.Message,
-		"type":       string(appErr.Type),
-		"request_id": appErr.RequestID,
+		"error": appErr.Message,
+		"type":  string(appErr.Type),
 	}
 }
 
