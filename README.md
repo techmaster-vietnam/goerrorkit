@@ -1,29 +1,23 @@
 # GoErrorKit
 
-🚀 **Framework-agnostic error handling library for Go** với khả năng capture chính xác **dòng code gây lỗi** và **stack trace chi tiết**.
+🚀 Thư viện xử lý lỗi cho Go với khả năng **capture chính xác dòng code gây lỗi** và **stack trace chi tiết**.
 
-## ✨ Features
+## ✨ Tính Năng Chính
 
-- ✅ **Panic recovery tự động** - Capture chính xác dòng code gây panic (không phải dòng gọi)
-- ✅ **Stack trace chi tiết** - Full call chain đến từng function
-- ✅ **Framework agnostic** - Core logic hoàn toàn độc lập với web framework
-- ✅ **Multiple framework support** - Adapters cho Fiber, Gin, Echo, Chi (coming soon)
-- ✅ **Custom error types** - Business, System, Validation, Auth, External errors
+- ✅ **Panic recovery tự động** - Capture chính xác dòng code gây panic (không phải dòng gọi hàm)
+- ✅ **Stack trace chi tiết** - Full call chain để debug dễ dàng
+- ✅ **Framework agnostic** - Hỗ trợ Fiber, Gin, Echo, Chi (adapters)
+- ✅ **Nhiều loại error** - Business, System, Validation, Auth, External
 - ✅ **Structured logging** - JSON format với full context
-- ✅ **Tách biệt metadata và data** - Trường `data` riêng cho dữ liệu đặc thù, giúp log dễ đọc
-- ✅ **File logging với rotation** - Tích hợp lumberjack
-- ✅ **Caller info tracking** - Tự động capture file:line cho mọi error
-- ✅ **Configurable** - Customize stack trace filtering, logger, etc.
+- ✅ **Fluent API** - Chain methods dễ dùng: `.WithData().WithCallChain()`
 
-## 📦 Installation
+## 📦 Cài Đặt
 
 ```bash
 go get github.com/techmaster-vietnam/goerrorkit
 ```
 
 ## 🚀 Quick Start
-
-### 1. Basic Setup với Fiber
 
 ```go
 package main
@@ -39,88 +33,115 @@ func main() {
     // 1. Khởi tạo logger
     goerrorkit.InitDefaultLogger()
 
-    // 2. Cấu hình stack trace cho application
+    // 2. Cấu hình stack trace
     goerrorkit.ConfigureForApplication("github.com/yourname/yourapp")
 
-    // 3. Setup Fiber app
+    // 3. Setup Fiber
     app := fiberv2.New()
-    
-    // RequestID middleware (để track requests)
     app.Use(requestid.New())
-    
-    // GoErrorKit middleware (PHẢI sau requestid)
-    app.Use(fiber.ErrorHandler())
+    app.Use(fiber.ErrorHandler()) // Middleware xử lý error
 
-    // 4. Define routes
+    // 4. Routes
     app.Get("/", homeHandler)
-    app.Get("/panic", panicHandler)
-    app.Get("/error", errorHandler)
-
     app.Listen(":3000")
 }
 
 func homeHandler(c *fiberv2.Ctx) error {
-    return c.JSON(fiber.Map{"message": "Hello World"})
-}
-
-func panicHandler(c *fiberv2.Ctx) error {
-    // Panic sẽ được tự động catch với CHÍNH XÁC location
-    arr := []int{1, 2, 3}
-    return c.JSON(fiber.Map{"value": arr[10]}) // ← Stack trace sẽ trỏ chính xác dòng này!
-}
-
-func errorHandler(c *fiberv2.Ctx) error {
-    // Custom error với stack trace
-    return goerrorkit.NewBusinessError(404, "Resource not found")
+    return c.JSON(fiberv2.Map{"message": "Hello"})
 }
 ```
 
-### 2. Custom Logger Configuration
+## ⚙️ Cấu Hình
+
+### 1. Cấu Hình Logger
 
 ```go
 goerrorkit.InitLogger(goerrorkit.LoggerOptions{
-    ConsoleOutput: true,           // Log ra console
-    FileOutput:    true,            // Log ra file
-    FilePath:      "logs/app.log", // Đường dẫn file
-    JSONFormat:    true,            // JSON format
-    MaxFileSize:   10,              // 10MB per file
-    MaxBackups:    5,               // Keep 5 backup files
-    MaxAge:        30,              // 30 days
-    LogLevel:      "error",         // error, warn, info, debug
+    ConsoleOutput: true,           // Log ra console (development)
+    FileOutput:    true,            // Log ra file (production)
+    FilePath:      "logs/app.log", // Đường dẫn file log
+    JSONFormat:    true,            // JSON format (dễ parse, search)
+    MaxFileSize:   10,              // 10MB/file (tự động rotate)
+    MaxBackups:    5,               // Giữ 5 file backup
+    MaxAge:        30,              // Giữ log 30 ngày
+    LogLevel:      "error",         // Mức log: error, warn, info, debug
 })
 ```
 
-### 3. Stack Trace Configuration
+**Giải thích:**
+- `ConsoleOutput`: Hiển thị log trên terminal (tốt cho dev)
+- `FileOutput`: Lưu log vào file (cần thiết cho production để trace bugs)
+- `JSONFormat`: Format JSON giúp dễ parse bằng ELK, Splunk, hoặc grep
+- `MaxFileSize`: Kích thước tối đa mỗi file trước khi rotate (tránh file quá lớn)
+- `MaxBackups`: Số lượng file backup giữ lại (cân bằng giữa storage và history)
+- `MaxAge`: Số ngày giữ log (tự động xóa log cũ)
+
+### 2. Cấu Hình Stack Trace
+
+#### Option 1: Tự động (Khuyên dùng)
 
 ```go
-// Option 1: Auto-configure cho application package
+// Tự động lọc stack trace CHỈ HIỂN THỊ code của BẠN
 goerrorkit.ConfigureForApplication("github.com/yourname/myapp")
+```
 
-// Option 2: Manual configuration
+**Giải thích:**
+- Tự động include TẤT CẢ packages bắt đầu với `github.com/yourname/myapp`
+- Tự động skip runtime code và thư viện bên thứ 3
+- Stack trace ngắn gọn, chỉ 5-10 dòng thay vì 50+ dòng
+
+#### Option 2: Thủ công (Advanced)
+
+```go
 goerrorkit.SetStackTraceConfig(goerrorkit.StackTraceConfig{
     IncludePackages: []string{
-        "github.com/yourname/myapp",
-        "main", // for local development
+        "github.com/yourname/myapp",  // Chỉ hiện code của app
+        "main",                       // Include main package
     },
     SkipPackages: []string{
-        "runtime",
-        "runtime/debug",
+        "runtime",                    // Bỏ qua Go runtime
+        "github.com/gofiber/fiber",   // Bỏ qua Fiber framework
     },
-    ShowFullPath: false, // true: full path, false: short name
+    ShowFullPath: false,              // false: myapp.Handler, true: github.com/user/myapp.Handler
 })
 ```
 
-## 📝 Error Types & Usage
+**Giải thích:**
+- `IncludePackages`: Chỉ hiển thị các packages này trong stack trace
+- `SkipPackages`: Bỏ qua các packages này (runtime, framework)
+- `ShowFullPath`: 
+  - `false`: Ngắn gọn → `myapp.Handler`
+  - `true`: Đầy đủ → `github.com/user/myapp.Handler`
 
-### Business Error (4xx)
+#### Option 3: Fluent API (Dynamic)
 
 ```go
-// Product không tồn tại (không cần data)
+goerrorkit.Configure().
+    SkipPackage("internal/metrics").
+    SkipPattern(".RequestID.func").
+    SkipPattern(".Logger.func").
+    ShowFullPath(false).
+    Apply()
+```
+
+**Giải thích:**
+- Dùng khi cần thêm skip patterns động (middleware, telemetry)
+- Chain nhiều cấu hình một lúc
+- `.Apply()` để áp dụng
+
+## 📝 Các Loại Error & Tình Huống Sử Dụng
+
+### 1. Business Error (4xx)
+
+**Khi nào dùng:** Lỗi business logic, user có thể fix được
+
+```go
+// Tình huống 1: Product không tồn tại
 if product == nil {
     return goerrorkit.NewBusinessError(404, "Product not found")
 }
 
-// Hết hàng (với custom data)
+// Tình huống 2: Hết hàng (có thêm thông tin chi tiết)
 if product.Stock == 0 {
     return goerrorkit.NewBusinessError(400, "Product out of stock").WithData(map[string]interface{}{
         "product_id": productID,
@@ -129,84 +150,79 @@ if product.Stock == 0 {
 }
 ```
 
-### System Error (5xx)
+### 2. System Error (5xx)
+
+**Khi nào dùng:** Lỗi hệ thống, database, file system, network
 
 ```go
-// Database error (với custom data)
+// Tình huống 1: Database error
 if err := db.Connect(); err != nil {
     return goerrorkit.NewSystemError(err).WithData(map[string]interface{}{
         "database": "postgres",
+        "host": "localhost:5432",
     })
 }
 
-// File system error (không cần data)
+// Tình huống 2: File system error
 if err := os.ReadFile("config.json"); err != nil {
     return goerrorkit.NewSystemError(err)
 }
 ```
 
-### Validation Error (400)
+### 3. Validation Error (400)
+
+**Khi nào dùng:** Input không hợp lệ, missing fields, wrong format
 
 ```go
-// Single field validation
+// Tình huống 1: Single field validation
 if age < 18 {
     return goerrorkit.NewValidationError("Age must be >= 18", map[string]interface{}{
-        "field":    "age",
-        "min":      18,
+        "field": "age",
+        "min": 18,
         "received": age,
     })
 }
 
-// Multiple field validation
+// Tình huống 2: Multiple fields validation
 if user.Email == "" || user.Name == "" {
     return goerrorkit.NewValidationError("Missing required fields", map[string]interface{}{
         "required": []string{"email", "name"},
     })
 }
-
-// Thêm dữ liệu đặc thù với .WithData() (fluent API)
-if stock < requested {
-    return goerrorkit.NewBusinessError(400, "Insufficient stock").WithData(map[string]interface{}{
-        "product_id": productID,
-        "requested": requested,
-        "available": stock,
-    })
-}
 ```
 
-**Lưu ý:** 
-- Validation error thường cần data → truyền trực tiếp vào parameter
-- Các error khác thường không cần → dùng `.WithData()` khi cần
-- Dữ liệu được log trong trường `data` riêng biệt, tách biệt với metadata hệ thống
+### 4. Auth Error (401, 403)
 
-### Auth Error (401, 403)
+**Khi nào dùng:** Authentication, authorization issues
 
 ```go
-// Missing token (không cần data)
+// Tình huống 1: Missing token
 if token == "" {
     return goerrorkit.NewAuthError(401, "Unauthorized: Missing token")
 }
 
-// Invalid token (với custom data)
+// Tình huống 2: Invalid token
 if !isValidToken(token) {
-    return goerrorkit.NewAuthError(401, "Unauthorized: Invalid token").WithData(map[string]interface{}{
+    return goerrorkit.NewAuthError(401, "Invalid token").WithData(map[string]interface{}{
         "token_type": getTokenType(token),
     })
 }
 
-// Insufficient permissions (với custom data)
+// Tình huống 3: Insufficient permissions
 if !hasPermission(user, "admin") {
-    return goerrorkit.NewAuthError(403, "Forbidden: Insufficient permissions").WithData(map[string]interface{}{
-        "user_id": user.ID,
+    return goerrorkit.NewAuthError(403, "Forbidden").WithData(map[string]interface{}{
         "required_role": "admin",
+        "user_role": user.Role,
     })
 }
 ```
 
-### External Error (502-504)
+### 5. External Error (502-504)
+
+**Khi nào dùng:** Lỗi từ third-party services (payment, SMS, email)
 
 ```go
-// Payment gateway error (với custom data)
+// Tình huống 1: Payment gateway error
 if err := paymentGateway.Charge(amount); err != nil {
     return goerrorkit.NewExternalError(502, "Payment gateway unavailable", err).WithData(map[string]interface{}{
         "gateway": "stripe",
@@ -214,20 +230,102 @@ if err := paymentGateway.Charge(amount); err != nil {
     })
 }
 
-// Third-party API timeout (với custom data)
+// Tình huống 2: API timeout
 if err := apiClient.Call(); err != nil {
     return goerrorkit.NewExternalError(504, "External API timeout", err).WithData(map[string]interface{}{
-        "api_endpoint": "/users",
+        "api": "/users",
         "timeout": "30s",
     })
 }
 ```
 
+## 🔍 WithCallChain() - Debug Chi Tiết
+
+**Mặc định:** Chỉ **panic errors** có full call chain.
+
+**Khi nào dùng `.WithCallChain()`:**
+- ✅ Debug lỗi phức tạp qua nhiều tầng function
+- ✅ Trace flow trong microservices
+- ✅ Investigate production issues
+- ✅ Deep call stack cần chi tiết
+
+**Khi nào KHÔNG cần:**
+- ❌ Lỗi đơn giản, rõ ràng
+- ❌ Performance critical code
+- ❌ Log volume quá lớn
+
+### Ví Dụ
+
+```go
+func processOrder(orderID string) error {
+    if err := validateOrder(orderID); err != nil {
+        return err // err đã có WithCallChain()
+    }
+    
+    if err := checkInventory(orderID); err != nil {
+        return err // err đã có WithCallChain()
+    }
+    
+    return nil
+}
+
+func validateOrder(orderID string) error {
+    if orderID == "" {
+        // ⭐ Thêm WithCallChain() để trace flow đầy đủ
+        return goerrorkit.NewValidationError("Invalid order", map[string]interface{}{
+            "reason": "empty_order_id",
+        }).WithCallChain()
+    }
+    return nil
+}
+
+func checkInventory(orderID string) error {
+    stock := getStock(orderID)
+    if stock == 0 {
+        // ⭐ Chain với WithData()
+        return goerrorkit.NewBusinessError(422, "Out of stock").
+            WithData(map[string]interface{}{
+                "order_id": orderID,
+                "stock": 0,
+            }).
+            WithCallChain()
+    }
+    return nil
+}
+```
+
+### Output So Sánh
+
+**Không có `.WithCallChain()`:**
+
+```json
+{
+  "level": "error",
+  "message": "Order validation failed",
+  "function": "main.validateOrder",
+  "file": "order.go:45"
+}
+```
+
+**Có `.WithCallChain()`:**
+
+```json
+{
+  "level": "error",
+  "message": "Order validation failed",
+  "function": "main.validateOrder",
+  "file": "order.go:45",
+  "call_chain": [
+    "main.validateOrder (order.go:45)",
+    "main.processOrder (order.go:23)",
+    "main.handleOrderRequest (handler.go:78)"
+  ]
+}
+```
+
 ## 📊 Log Output Examples
 
-### Panic Log
-
-Khi panic xảy ra, bạn sẽ nhận được log chi tiết như sau:
+### Panic Log (Tự động capture chính xác)
 
 ```json
 {
@@ -248,22 +346,20 @@ Khi panic xảy ra, bạn sẽ nhận được log chi tiết như sau:
 }
 ```
 
-**Chú ý:** `file: "main.go:94"` là **CHÍNH XÁC** dòng code gây panic, không phải dòng gọi hàm!
+**Lưu ý:** `file: "main.go:94"` là **CHÍNH XÁC** dòng gây panic!
 
 ### Validation Error với Data
-
-Khi có validation error với custom data:
 
 ```json
 {
   "timestamp": "2025-11-11T15:58:00+07:00",
   "level": "error",
-  "message": "Không đủ hàng: yêu cầu 1, còn lại 0",
+  "message": "Insufficient stock",
   "error_type": "VALIDATION",
   "status_code": 400,
   "path": "POST /order/create",
-  "request_id": "c8e1aa21-9f08-4e73-809b-f3937266fe22",
-  "function": "services.(*ProductService).ReserveProduct",
+  "request_id": "c8e1aa21-9f08-4e73-809b",
+  "function": "services.ReserveProduct",
   "file": "product_service.go:70",
   "data": {
     "product_id": "123",
@@ -274,19 +370,18 @@ Khi có validation error với custom data:
 }
 ```
 
-**Ưu điểm:** Dữ liệu đặc thù được nhóm trong trường `data`, tách biệt với metadata hệ thống, giúp log dễ đọc và phân tích hơn!
+**Ưu điểm:** Dữ liệu đặc thù nằm trong trường `data` riêng biệt, dễ đọc và phân tích!
 
-## 🎯 Comparison với các thư viện khác
+## 🎯 So Sánh Với Các Thư Viện Khác
 
 | Feature | GoErrorKit | pkg/errors | cockroachdb/errors | Sentry |
 |---------|------------|------------|-------------------|--------|
-| **Chính xác panic location** | ✅ main.go:94 | ❌ Capture tại wrap | ❌ Capture tại wrap | ✅ |
-| **Call chain đầy đủ** | ✅ | ⚠️ Partial | ⚠️ Partial | ✅ |
-| **Log vào file local** | ✅ JSON | ❌ | ❌ | ❌ |
-| **Framework agnostic** | ✅ | ✅ | ✅ | ✅ |
-| **Self-hosted** | ✅ | ✅ | ✅ | ⚠️ Optional |
-| **Zero external service** | ✅ | ✅ | ✅ | ❌ |
-| **Setup complexity** | Low | Low | Low | Medium |
+| Chính xác panic location | ✅ main.go:94 | ❌ Tại wrap | ❌ Tại wrap | ✅ |
+| Call chain đầy đủ | ✅ | ⚠️ Partial | ⚠️ Partial | ✅ |
+| Log vào file local | ✅ JSON | ❌ | ❌ | ❌ |
+| Framework agnostic | ✅ | ✅ | ✅ | ✅ |
+| Self-hosted | ✅ | ✅ | ✅ | ⚠️ Optional |
+| Zero external service | ✅ | ✅ | ✅ | ❌ |
 
 ## 🏗️ Architecture
 
@@ -296,37 +391,31 @@ goerrorkit/
 │   ├── error.go       # Error types & factories
 │   ├── handler.go     # Panic handling & conversion
 │   ├── stacktrace.go  # Stack trace capture & filtering
-│   ├── context.go     # HTTP context interface
 │   ├── logger.go      # Logging interface
-│   └── logrus_logger.go # Logrus logger implementation
+│   └── context.go     # HTTP context interface
 │
-├── adapters/          # Framework-specific adapters
+├── adapters/          # Framework adapters
 │   └── fiber/         # Fiber v2 adapter
-│       ├── middleware.go
-│       └── context.go
 │
-└── examples/          # Example applications
+└── examples/          # Demo apps
     └── fiber-demo/
 ```
 
-## 🔌 Adapters
+## 🔌 Framework Adapters
 
-### Currently Supported
-
+**Supported:**
 - ✅ **Fiber v2** - `github.com/techmaster-vietnam/goerrorkit/adapters/fiber`
 
-### Coming Soon
-
-- 🚧 **Gin** - `github.com/techmaster-vietnam/goerrorkit/adapters/gin`
-- 🚧 **Echo** - `github.com/techmaster-vietnam/goerrorkit/adapters/echo`
-- 🚧 **Chi** - `github.com/techmaster-vietnam/goerrorkit/adapters/chi`
+**Coming Soon:**
+- 🚧 **Gin**
+- 🚧 **Echo**
+- 🚧 **Chi**
 
 ## 📚 Documentation
 
 - [Getting Started](docs/getting-started.md)
 - [Configuration Guide](docs/configuration.md)
-- [Architecture Overview](docs/architecture.md)
-- [Creating Custom Adapters](docs/custom-adapters.md)
+- [Stack Trace Configuration](docs/stack-trace-configuration.md)
 
 ## 🤝 Contributing
 
@@ -336,17 +425,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
-
-- Inspired by the need for accurate panic location tracking in production Go applications
-- Built with ❤️ for the Go community
-
-## 📧 Contact
-
-- GitHub: [@cuong](https://github.com/cuong)
-- Email: your.email@example.com
-
 ---
 
-⭐ If you find this library helpful, please consider giving it a star on GitHub!
-
+⭐ Nếu thấy hữu ích, hãy cho repo một star trên GitHub!

@@ -36,7 +36,8 @@ var defaultConfig = StackTraceConfig{
 		"formatStackTraceArray",
 		"getActualPanicLocation",
 		"HandlePanic",
-		".func", // anonymous functions
+		"ErrorHandler",
+		"middleware",
 	},
 	IncludePackages: []string{},
 	ShowFullPath:    false,
@@ -67,37 +68,134 @@ func ConfigureForApplication(appPackage string) {
 	)
 }
 
+// StackTraceConfigurator cung cấp fluent API để configure stack trace
+type StackTraceConfigurator struct {
+	config StackTraceConfig
+}
+
+// Configure trả về một configurator mới với config hiện tại
+//
+// Example:
+//
+//	goerrorkit.Configure().
+//	    SkipPackage("mylib").
+//	    SkipFunction("helper").
+//	    SkipPattern(".RequestID.func").
+//	    Apply()
+func Configure() *StackTraceConfigurator {
+	// Copy config hiện tại để tránh modify trực tiếp
+	return &StackTraceConfigurator{
+		config: StackTraceConfig{
+			SkipPackages:    append([]string{}, defaultConfig.SkipPackages...),
+			SkipFunctions:   append([]string{}, defaultConfig.SkipFunctions...),
+			IncludePackages: append([]string{}, defaultConfig.IncludePackages...),
+			ShowFullPath:    defaultConfig.ShowFullPath,
+		},
+	}
+}
+
+// SkipPackage thêm package cần bỏ qua vào danh sách
+func (c *StackTraceConfigurator) SkipPackage(pkg string) *StackTraceConfigurator {
+	c.config.SkipPackages = append(c.config.SkipPackages, pkg)
+	return c
+}
+
+// SkipPackages thêm nhiều packages cần bỏ qua
+func (c *StackTraceConfigurator) SkipPackages(pkgs ...string) *StackTraceConfigurator {
+	c.config.SkipPackages = append(c.config.SkipPackages, pkgs...)
+	return c
+}
+
+// SkipFunction thêm function pattern cần bỏ qua
+func (c *StackTraceConfigurator) SkipFunction(fn string) *StackTraceConfigurator {
+	c.config.SkipFunctions = append(c.config.SkipFunctions, fn)
+	return c
+}
+
+// SkipFunctions thêm nhiều function patterns cần bỏ qua
+func (c *StackTraceConfigurator) SkipFunctions(fns ...string) *StackTraceConfigurator {
+	c.config.SkipFunctions = append(c.config.SkipFunctions, fns...)
+	return c
+}
+
+// SkipPattern là alias cho SkipFunction (semantic clarity)
+func (c *StackTraceConfigurator) SkipPattern(pattern string) *StackTraceConfigurator {
+	return c.SkipFunction(pattern)
+}
+
+// SkipPatterns thêm nhiều patterns cần bỏ qua
+func (c *StackTraceConfigurator) SkipPatterns(patterns ...string) *StackTraceConfigurator {
+	return c.SkipFunctions(patterns...)
+}
+
+// IncludePackage set package cần include (application code)
+func (c *StackTraceConfigurator) IncludePackage(pkg string) *StackTraceConfigurator {
+	c.config.IncludePackages = append(c.config.IncludePackages, pkg)
+	return c
+}
+
+// IncludePackages set nhiều packages cần include
+func (c *StackTraceConfigurator) IncludePackages(pkgs ...string) *StackTraceConfigurator {
+	c.config.IncludePackages = append(c.config.IncludePackages, pkgs...)
+	return c
+}
+
+// ShowFullPath bật/tắt hiển thị full package path
+func (c *StackTraceConfigurator) ShowFullPath(show bool) *StackTraceConfigurator {
+	c.config.ShowFullPath = show
+	return c
+}
+
+// Apply áp dụng configuration
+func (c *StackTraceConfigurator) Apply() {
+	defaultConfig = c.config
+}
+
+// AddSkipPatterns là shorthand function để nhanh chóng thêm skip patterns
+// mà không cần tạo configurator
+//
+// Example:
+//
+//	goerrorkit.AddSkipPatterns(".RequestID.func", ".Logger.func", "telemetry")
+func AddSkipPatterns(patterns ...string) {
+	defaultConfig.SkipFunctions = append(defaultConfig.SkipFunctions, patterns...)
+}
+
+// AddSkipPackages là shorthand function để nhanh chóng thêm skip packages
+//
+// Example:
+//
+//	goerrorkit.AddSkipPackages("internal/telemetry", "vendor/monitoring")
+func AddSkipPackages(packages ...string) {
+	defaultConfig.SkipPackages = append(defaultConfig.SkipPackages, packages...)
+}
+
 // getActualPanicLocation lấy thông tin về dòng THỰC SỰ gây panic
 // Đây là nơi thực sự phát sinh lỗi, không phải nơi gọi hàm
 func getActualPanicLocation() (file string, line int, function string) {
 	stack := string(debug.Stack())
 	lines := strings.Split(stack, "\n")
 
-	// DEBUG: In ra stack trace để debug
-	fmt.Println("=== DEBUG STACK TRACE ===")
-	for i, line := range lines {
-		fmt.Printf("[%d] %q\n", i, line)
-	}
-	fmt.Println("=== END DEBUG ===")
+	// Stack trace format:
+	// goroutine X [running]:
+	// runtime/debug.Stack()
+	//     /path/to/runtime/debug/stack.go:24 +0x65
+	// main.getActualPanicLocation()
+	//     /path/to/main.go:73 +0x27
+	// ...
+	// main.GetElement(...)  <- Đây là nơi panic thực sự
+	//     /path/to/main.go:117 +0x1f
 
-	panicFound := false
 	for i := 0; i < len(lines); i++ {
 		l := strings.TrimSpace(lines[i])
 
-		// DEBUG: In ra quá trình tìm kiếm
-		if panicFound {
-			fmt.Printf("[DEBUG] Checking line: %q, isUserFunction: %v\n", l, isUserFunction(l))
-		}
-
-		// Tìm dòng "panic"
-		if !panicFound && strings.HasPrefix(l, "panic(") {
-			panicFound = true
-			fmt.Println("[DEBUG] Found panic line!")
+		// Bỏ qua dòng trống
+		if l == "" {
 			continue
 		}
 
-		// Sau khi tìm thấy panic, tìm function thực sự gây panic
-		if panicFound && isUserFunction(l) {
+		// Tìm function đầu tiên của user code (không phải runtime/debug và không phải goerrorkit)
+		if isUserFunction(l) && !shouldSkipFunction(l) {
 			function = l
 			// Lấy tên function (bỏ phần parameter)
 			if idx := strings.Index(function, "("); idx > 0 {
@@ -211,27 +309,37 @@ func getCallerInfo(skip int) (file string, line int, function string) {
 
 // isUserFunction kiểm tra xem có phải user code không
 func isUserFunction(line string) bool {
+	// Bỏ qua dòng trống và các dòng không phải function
+	if line == "" || !strings.Contains(line, ".") {
+		return false
+	}
+
 	// Bỏ qua runtime internal
 	if strings.HasPrefix(line, "runtime.") ||
-		strings.HasPrefix(line, "runtime/debug.") {
+		strings.HasPrefix(line, "runtime/debug.") ||
+		strings.Contains(line, "runtime.") ||
+		strings.Contains(line, "runtime/debug.") {
 		return false
+	}
+
+	// Bỏ qua các packages trong SkipPackages
+	for _, pkg := range defaultConfig.SkipPackages {
+		if strings.HasPrefix(line, pkg+".") || strings.Contains(line, pkg+".") || strings.Contains(line, "/"+pkg+".") {
+			return false
+		}
 	}
 
 	// Nếu có config IncludePackages, chỉ lấy những packages đó
 	if len(defaultConfig.IncludePackages) > 0 {
 		for _, pkg := range defaultConfig.IncludePackages {
-			if strings.HasPrefix(line, pkg+".") || strings.Contains(line, pkg+".") {
+			// Hỗ trợ cả package name và full path
+			if strings.HasPrefix(line, pkg+".") ||
+				strings.Contains(line, pkg+".") ||
+				strings.Contains(line, "/"+pkg+".") {
 				return true
 			}
 		}
 		return false
-	}
-
-	// Không trong SkipPackages
-	for _, pkg := range defaultConfig.SkipPackages {
-		if strings.HasPrefix(line, pkg+".") || strings.Contains(line, pkg+".") {
-			return false
-		}
 	}
 
 	return true
@@ -244,6 +352,55 @@ func shouldSkipFunction(line string) bool {
 			return true
 		}
 	}
+
+	// Skip tất cả anonymous functions có pattern như "package.function.Method.func1"
+	// Ví dụ: "main.main.New.func1", "github.com/gofiber/fiber.(*App).Next.func1"
+	// Đây thường là middleware wrappers, không phải business logic
+	if isMiddlewareAnonymousFunc(line) {
+		return true
+	}
+
+	return false
+}
+
+// isMiddlewareAnonymousFunc kiểm tra xem có phải anonymous function từ middleware không
+func isMiddlewareAnonymousFunc(line string) bool {
+	// Kiểm tra xem có chứa ".func" (anonymous function) không
+	if !strings.Contains(line, ".func") {
+		return false
+	}
+
+	// Pattern 1: package.package.Method.func (ví dụ: main.main.New.func1)
+	// Đếm số lần xuất hiện của package name lặp lại
+	parts := strings.Split(line, ".")
+	if len(parts) >= 4 {
+		// Nếu có >= 4 parts và chứa ".func", nhiều khả năng là middleware
+		// Ví dụ: ["main", "main", "New", "func1"] hoặc ["github", "com/gofiber/fiber", "App", "Next", "func1"]
+		for i := 0; i < len(parts)-1; i++ {
+			if strings.Contains(parts[i+1], "func") {
+				return true
+			}
+		}
+	}
+
+	// Pattern 2: Các pattern middleware phổ biến
+	middlewarePatterns := []string{
+		".main.New.func",   // Fiber middleware setup
+		".main.Use.func",   // Middleware use
+		".Handler.func",    // Handler wrapper
+		".Middleware.func", // Generic middleware
+		".Next.func",       // Middleware chain
+		".middleware.func", // Lowercase middleware
+		".recover.func",    // Recovery middleware
+		".logger.func",     // Logger middleware
+	}
+
+	for _, pattern := range middlewarePatterns {
+		if strings.Contains(line, pattern) {
+			return true
+		}
+	}
+
 	return false
 }
 

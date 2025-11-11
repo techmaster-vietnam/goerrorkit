@@ -54,6 +54,30 @@ func (e *AppError) WithData(data map[string]interface{}) *AppError {
 	return e
 }
 
+// WithCallChain thêm full call chain (stack trace) vào error
+// Hữu ích khi cần debug chi tiết hoặc trace flow phức tạp
+// Lưu ý: Có overhead performance nên chỉ dùng khi cần thiết
+//
+// Example:
+//
+//	// Lỗi phức tạp cần trace chi tiết
+//	if err := complexOperation(); err != nil {
+//	    return goerrorkit.NewSystemError(err).WithCallChain()
+//	}
+//
+//	// Chain với WithData
+//	return goerrorkit.NewBusinessError(404, "Product not found").
+//	    WithData(map[string]interface{}{"product_id": id}).
+//	    WithCallChain()
+func (e *AppError) WithCallChain() *AppError {
+	callChain := formatStackTraceArray()
+	if e.Details == nil {
+		e.Details = make(map[string]interface{})
+	}
+	e.Details["call_chain"] = callChain
+	return e
+}
+
 // ============================================================================
 // Factory Functions - Tạo Error Dễ Dàng
 // ============================================================================

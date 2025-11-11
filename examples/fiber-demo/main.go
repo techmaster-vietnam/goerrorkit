@@ -42,6 +42,19 @@ func main() {
 	//
 	goerrorkit.ConfigureForApplication("main")
 
+	// 🔧 FLUENT API: Nếu cần thêm các patterns tùy chỉnh, có thể dùng:
+	//
+	// Cách 1: Shorthand - Nhanh chóng thêm skip patterns
+	// goerrorkit.AddSkipPatterns(".RequestID.func", ".Logger.func", "telemetry")
+	//
+	// Cách 2: Fluent API - Configuration chi tiết hơn
+	// goerrorkit.Configure().
+	//     SkipPattern(".CustomMiddleware.func").
+	//     SkipPackage("internal/metrics").
+	//     SkipFunctions("helper", "wrapper").
+	//     ShowFullPath(false).
+	//     Apply()
+
 	// 3. Create Fiber app
 	app := fiberv2.New(fiberv2.Config{
 		AppName: "GoErrorKit Demo",
@@ -66,6 +79,7 @@ func main() {
 	app.Get("/error/validation", validationErrorHandler)
 	app.Get("/error/auth", authErrorHandler)
 	app.Get("/error/external", externalErrorHandler)
+	app.Get("/error/complex", complexErrorWithCallChainHandler)
 
 	// Start server
 	fmt.Println("🚀 Server starting on http://localhost:8081")
@@ -81,6 +95,7 @@ func main() {
 	fmt.Println("  GET  /error/validation     - Validation error (400)")
 	fmt.Println("  GET  /error/auth           - Auth error (401)")
 	fmt.Println("  GET  /error/external       - External service error (502)")
+	fmt.Println("  GET  /error/complex        - Complex error WITH call_chain ⭐")
 	fmt.Println("\n📄 Check logs/errors.log for detailed error logs")
 
 	if err := app.Listen(":8081"); err != nil {
@@ -260,4 +275,71 @@ func externalErrorHandler(c *fiberv2.Ctx) error {
 		"service": service,
 		"timeout": "30s",
 	})
+}
+
+// ============================================================================
+// Complex Error Handler - Demonstrate WithCallChain()
+// ============================================================================
+
+// complexErrorWithCallChainHandler demonstrates using .WithCallChain()
+// to add full call chain to non-panic errors for better debugging
+func complexErrorWithCallChainHandler(c *fiberv2.Ctx) error {
+	// Simulate a complex operation with multiple function calls
+	result, err := processOrder()
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(fiberv2.Map{
+		"message": "Order processed",
+		"result":  result,
+	})
+}
+
+func processOrder() (string, error) {
+	// Call validation
+	if err := validateOrder(); err != nil {
+		return "", err
+	}
+
+	// Call inventory check
+	if err := checkInventory(); err != nil {
+		return "", err
+	}
+
+	return "success", nil
+}
+
+func validateOrder() error {
+	// Simulate validation
+	isValid := false
+
+	if !isValid {
+		// ⭐ Sử dụng .WithCallChain() để thêm full call chain
+		// Giúp trace được: complexErrorWithCallChainHandler → processOrder → validateOrder
+		return goerrorkit.NewValidationError("Order validation failed", map[string]interface{}{
+			"reason": "invalid_order_data",
+		}).WithCallChain() // ⭐ Thêm call_chain vào error!
+	}
+
+	return nil
+}
+
+func checkInventory() error {
+	// Simulate inventory check
+	stockAvailable := 0
+
+	if stockAvailable == 0 {
+		// ⭐ Chain nhiều methods: WithData() + WithCallChain()
+		return goerrorkit.NewBusinessError(422, "Insufficient inventory").
+			WithData(map[string]interface{}{
+				"product_id": "PROD-123",
+				"requested":  10,
+				"available":  0,
+				"warehouse":  "WH-01",
+			}).
+			WithCallChain() // ⭐ Thêm call_chain để trace flow
+	}
+
+	return nil
 }
