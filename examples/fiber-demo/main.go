@@ -6,14 +6,13 @@ import (
 	fiberv2 "github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
+	"github.com/techmaster-vietnam/goerrorkit"
 	"github.com/techmaster-vietnam/goerrorkit/adapters/fiber"
-	"github.com/techmaster-vietnam/goerrorkit/config"
-	"github.com/techmaster-vietnam/goerrorkit/core"
 )
 
 func main() {
 	// 1. Initialize logger với custom options
-	config.InitLogger(config.LoggerOptions{
+	goerrorkit.InitLogger(goerrorkit.LoggerOptions{
 		ConsoleOutput: true,
 		FileOutput:    true,
 		FilePath:      "logs/errors.log",
@@ -25,8 +24,23 @@ func main() {
 	})
 
 	// 2. Configure stack trace for this application
-	// Replace "github.com/techmaster-vietnam/goerrorkit/examples/fiber-demo" with your app package
-	core.ConfigureForApplication("main")
+	// 🎯 MỤC ĐÍCH: Lọc stack trace để CHỈ HIỂN THỊ code của BẠN, bỏ qua:
+	//    - Go runtime code (runtime.*, runtime/debug.*)
+	//    - Thư viện bên thứ 3 (fiber, goerrorkit, etc.)
+	//
+	// ✅ CÁCH DÙNG:
+	//    - App đơn giản (1 file main.go):
+	//      goerrorkit.ConfigureForApplication("main")
+	//
+	//    - App với nhiều package (services/, handlers/, models/...):
+	//      goerrorkit.ConfigureForApplication("github.com/techmaster-vietnam/goerrorkit/examples/fiber-demo")
+	//      → Tự động include TẤT CẢ sub-packages!
+	//
+	// 📊 KẾT QUẢ:
+	//    KHÔNG cấu hình: Stack trace dài 50+ dòng (runtime, fiber, goerrorkit...)
+	//    CÓ cấu hình:    Stack trace ngắn gọn, chỉ 5-10 dòng CODE CỦA BẠN!
+	//
+	goerrorkit.ConfigureForApplication("main")
 
 	// 3. Create Fiber app
 	app := fiberv2.New(fiberv2.Config{
@@ -67,7 +81,7 @@ func main() {
 	fmt.Println("  GET  /error/validation     - Validation error (400)")
 	fmt.Println("  GET  /error/auth           - Auth error (401)")
 	fmt.Println("  GET  /error/external       - External service error (502)")
-	fmt.Println("\n📄 Check logs/errors.log for detailed error logs\n")
+	fmt.Println("\n📄 Check logs/errors.log for detailed error logs")
 
 	if err := app.Listen(":8081"); err != nil {
 		panic(err)
@@ -134,7 +148,7 @@ func businessErrorHandler(c *fiberv2.Ctx) error {
 
 	// Simulate product not found
 	if productID == "123" {
-		return core.NewBusinessError(404, fmt.Sprintf("Product ID=%s not found", productID))
+		return goerrorkit.NewBusinessError(404, fmt.Sprintf("Product ID=%s not found", productID))
 	}
 
 	return c.JSON(fiberv2.Map{
@@ -146,14 +160,14 @@ func businessErrorHandler(c *fiberv2.Ctx) error {
 func systemErrorHandler(c *fiberv2.Ctx) error {
 	// Simulate database connection error
 	err := fmt.Errorf("connection refused: database is down")
-	return core.NewSystemError(err)
+	return goerrorkit.NewSystemError(err)
 }
 
 func validationErrorHandler(c *fiberv2.Ctx) error {
 	age := c.Query("age", "")
 
 	if age == "" {
-		return core.NewValidationError("Missing parameter 'age'", map[string]interface{}{
+		return goerrorkit.NewValidationError("Missing parameter 'age'", map[string]interface{}{
 			"field":    "age",
 			"required": true,
 		})
@@ -162,7 +176,7 @@ func validationErrorHandler(c *fiberv2.Ctx) error {
 	// Check if age is a number
 	var ageInt int
 	if _, err := fmt.Sscanf(age, "%d", &ageInt); err != nil {
-		return core.NewValidationError("Parameter 'age' must be an integer", map[string]interface{}{
+		return goerrorkit.NewValidationError("Parameter 'age' must be an integer", map[string]interface{}{
 			"field":    "age",
 			"type":     "integer",
 			"received": age,
@@ -170,7 +184,7 @@ func validationErrorHandler(c *fiberv2.Ctx) error {
 	}
 
 	if ageInt < 18 {
-		return core.NewValidationError("Age must be >= 18", map[string]interface{}{
+		return goerrorkit.NewValidationError("Age must be >= 18", map[string]interface{}{
 			"field":    "age",
 			"min":      18,
 			"received": ageInt,
@@ -188,18 +202,18 @@ func authErrorHandler(c *fiberv2.Ctx) error {
 
 	// Check if token exists
 	if token == "" {
-		return core.NewAuthError(401, "Unauthorized: Missing authorization token")
+		return goerrorkit.NewAuthError(401, "Unauthorized: Missing authorization token")
 	}
 
 	// Simulate invalid token
 	if token != "Bearer valid-token-123" {
-		return core.NewAuthError(401, "Unauthorized: Invalid token")
+		return goerrorkit.NewAuthError(401, "Unauthorized: Invalid token")
 	}
 
 	// Simulate permission check
 	role := c.Get("X-User-Role")
 	if role != "admin" {
-		return core.NewAuthError(403, "Forbidden: Insufficient permissions")
+		return goerrorkit.NewAuthError(403, "Forbidden: Insufficient permissions")
 	}
 
 	return c.JSON(fiberv2.Map{
@@ -232,5 +246,5 @@ func externalErrorHandler(c *fiberv2.Ctx) error {
 		message = "External service unavailable"
 	}
 
-	return core.NewExternalError(statusCode, message, err)
+	return goerrorkit.NewExternalError(statusCode, message, err)
 }

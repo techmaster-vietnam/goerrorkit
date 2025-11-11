@@ -1,4 +1,4 @@
-package core
+package goerrorkit
 
 import (
 	"fmt"
@@ -11,7 +11,7 @@ import (
 //
 //	defer func() {
 //	    if r := recover(); r != nil {
-//	        panicErr := core.HandlePanic(r, requestID)
+//	        panicErr := goerrorkit.HandlePanic(r, requestID)
 //	        // Log and respond...
 //	    }
 //	}()
@@ -40,7 +40,7 @@ func HandlePanic(r interface{}, requestID string) *AppError {
 //
 //	err := someFunction()
 //	if err != nil {
-//	    appErr := core.ConvertToAppError(err, requestID)
+//	    appErr := goerrorkit.ConvertToAppError(err, requestID)
 //	    return appErr
 //	}
 func ConvertToAppError(err error, requestID string) *AppError {

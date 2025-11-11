@@ -1,4 +1,4 @@
-package core
+package goerrorkit
 
 import (
 	"fmt"
@@ -46,7 +46,7 @@ var defaultConfig = StackTraceConfig{
 //
 // Example:
 //
-//	core.SetStackTraceConfig(core.StackTraceConfig{
+//	goerrorkit.SetStackTraceConfig(goerrorkit.StackTraceConfig{
 //	    IncludePackages: []string{"github.com/yourname/myapp"},
 //	    ShowFullPath: false,
 //	})
@@ -58,14 +58,12 @@ func SetStackTraceConfig(config StackTraceConfig) {
 //
 // Example:
 //
-//	core.ConfigureForApplication("github.com/yourname/myapp")
+//	goerrorkit.ConfigureForApplication("github.com/yourname/myapp")
 func ConfigureForApplication(appPackage string) {
 	defaultConfig.IncludePackages = []string{appPackage}
 	// Auto-skip thư viện goerrorkit
 	defaultConfig.SkipPackages = append(defaultConfig.SkipPackages,
-		"github.com/techmaster-vietnam/goerrorkit/core",
-		"github.com/techmaster-vietnam/goerrorkit/adapters",
-		"github.com/techmaster-vietnam/goerrorkit/config",
+		"github.com/techmaster-vietnam/goerrorkit",
 	)
 }
 

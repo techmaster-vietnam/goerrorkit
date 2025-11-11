@@ -15,19 +15,18 @@ go get github.com/gofiber/fiber/v2
 package main
 
 import (
+    "github.com/techmaster-vietnam/goerrorkit"
     "github.com/techmaster-vietnam/goerrorkit/adapters/fiber"
-    "github.com/techmaster-vietnam/goerrorkit/config"
-    "github.com/techmaster-vietnam/goerrorkit/core"
     fiberv2 "github.com/gofiber/fiber/v2"
     "github.com/gofiber/fiber/v2/middleware/requestid"
 )
 
 func main() {
     // 1. Khởi tạo logger
-    config.InitDefaultLogger()
+    goerrorkit.InitDefaultLogger()
 
     // 2. Cấu hình stack trace cho application của bạn
-    core.ConfigureForApplication("github.com/yourname/yourapp")
+    goerrorkit.ConfigureForApplication("github.com/yourname/yourapp")
 
     // 3. Tạo Fiber app
     app := fiberv2.New()
@@ -44,7 +43,7 @@ func main() {
 
     app.Get("/error", func(c *fiberv2.Ctx) error {
         // Custom error với stack trace
-        return core.NewBusinessError(404, "Resource not found")
+        return goerrorkit.NewBusinessError(404, "Resource not found")
     })
 
     app.Listen(":3000")

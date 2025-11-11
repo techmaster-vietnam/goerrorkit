@@ -2,7 +2,7 @@ package fiber
 
 import (
 	fiberv2 "github.com/gofiber/fiber/v2"
-	"github.com/techmaster-vietnam/goerrorkit/core"
+	"github.com/techmaster-vietnam/goerrorkit"
 )
 
 // ErrorHandler là Fiber middleware để xử lý panic và errors
@@ -33,8 +33,8 @@ func ErrorHandler() fiberv2.Handler {
 			r := recover()
 			if r != nil {
 				// Xử lý panic bằng core logic - capture chính xác dòng gây panic
-				panicErr := core.HandlePanic(r, requestID)
-				core.LogAndRespond(ctx, panicErr, requestPath)
+				panicErr := goerrorkit.HandlePanic(r, requestID)
+				goerrorkit.LogAndRespond(ctx, panicErr, requestPath)
 			}
 		}()
 
@@ -44,8 +44,8 @@ func ErrorHandler() fiberv2.Handler {
 		// Xử lý error nếu có
 		if err != nil {
 			// Convert sang AppError bằng core logic
-			appErr := core.ConvertToAppError(err, requestID)
-			core.LogAndRespond(ctx, appErr, requestPath)
+			appErr := goerrorkit.ConvertToAppError(err, requestID)
+			goerrorkit.LogAndRespond(ctx, appErr, requestPath)
 			return nil
 		}
 

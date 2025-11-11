@@ -1,4 +1,4 @@
-package core
+package goerrorkit
 
 import (
 	"fmt"
@@ -46,7 +46,7 @@ func (e *AppError) Unwrap() error {
 // Example:
 //
 //	if product.Stock == 0 {
-//	    return core.NewBusinessError(404, "Product out of stock")
+//	    return goerrorkit.NewBusinessError(404, "Product out of stock")
 //	}
 func NewBusinessError(code int, msg string) *AppError {
 	file, line, function := getCallerInfo(1)
@@ -66,7 +66,7 @@ func NewBusinessError(code int, msg string) *AppError {
 // Example:
 //
 //	if err := db.Connect(); err != nil {
-//	    return core.NewSystemError(err)
+//	    return goerrorkit.NewSystemError(err)
 //	}
 func NewSystemError(err error) *AppError {
 	file, line, function := getCallerInfo(1)
@@ -87,7 +87,7 @@ func NewSystemError(err error) *AppError {
 // Example:
 //
 //	if age < 18 {
-//	    return core.NewValidationError("Age must be >= 18", map[string]interface{}{
+//	    return goerrorkit.NewValidationError("Age must be >= 18", map[string]interface{}{
 //	        "field": "age",
 //	        "min": 18,
 //	        "received": age,
@@ -113,7 +113,7 @@ func NewValidationError(msg string, details map[string]interface{}) *AppError {
 // Example:
 //
 //	if token == "" {
-//	    return core.NewAuthError(401, "Unauthorized: Missing token")
+//	    return goerrorkit.NewAuthError(401, "Unauthorized: Missing token")
 //	}
 func NewAuthError(code int, msg string) *AppError {
 	file, line, function := getCallerInfo(1)
@@ -133,7 +133,7 @@ func NewAuthError(code int, msg string) *AppError {
 // Example:
 //
 //	if err := paymentGateway.Charge(); err != nil {
-//	    return core.NewExternalError(502, "Payment gateway unavailable", err)
+//	    return goerrorkit.NewExternalError(502, "Payment gateway unavailable", err)
 //	}
 func NewExternalError(code int, msg string, cause error) *AppError {
 	file, line, function := getCallerInfo(1)

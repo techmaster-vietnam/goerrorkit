@@ -1,4 +1,4 @@
-package config
+package goerrorkit
 
 import (
 	"io"
@@ -6,31 +6,30 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/techmaster-vietnam/goerrorkit/core"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-// LogrusLogger implement core.Logger interface sử dụng logrus
+// LogrusLogger implement Logger interface sử dụng logrus
 type LogrusLogger struct {
 	logger *logrus.Logger
 }
 
-// Error implements core.Logger
+// Error implements Logger
 func (l *LogrusLogger) Error(msg string, fields map[string]interface{}) {
 	l.logger.WithFields(fields).Error(msg)
 }
 
-// Info implements core.Logger
+// Info implements Logger
 func (l *LogrusLogger) Info(msg string, fields map[string]interface{}) {
 	l.logger.WithFields(fields).Info(msg)
 }
 
-// Debug implements core.Logger
+// Debug implements Logger
 func (l *LogrusLogger) Debug(msg string, fields map[string]interface{}) {
 	l.logger.WithFields(fields).Debug(msg)
 }
 
-// Warn implements core.Logger
+// Warn implements Logger
 func (l *LogrusLogger) Warn(msg string, fields map[string]interface{}) {
 	l.logger.WithFields(fields).Warn(msg)
 }
@@ -80,7 +79,7 @@ func DefaultLoggerOptions() LoggerOptions {
 //
 // Example:
 //
-//	config.InitLogger(config.LoggerOptions{
+//	goerrorkit.InitLogger(goerrorkit.LoggerOptions{
 //	    ConsoleOutput: true,
 //	    FileOutput: true,
 //	    FilePath: "logs/app.log",
@@ -146,9 +145,9 @@ func InitLogger(opts LoggerOptions) {
 	}
 	logger.SetLevel(level)
 
-	// Wrap và set vào core
+	// Wrap và set vào goerrorkit
 	logrusLogger := &LogrusLogger{logger: logger}
-	core.SetLogger(logrusLogger)
+	SetLogger(logrusLogger)
 
 	logger.Info("✓ GoErrorKit logger initialized")
 }
@@ -157,7 +156,7 @@ func InitLogger(opts LoggerOptions) {
 //
 // Example:
 //
-//	config.InitDefaultLogger()
+//	goerrorkit.InitDefaultLogger()
 func InitDefaultLogger() {
 	InitLogger(DefaultLoggerOptions())
 }

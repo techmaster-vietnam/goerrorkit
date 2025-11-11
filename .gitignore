@@ -39,3 +39,8 @@ __debug_bin*
 dist/
 build/
 
+# Example binaries
+examples/*/fiber-demo
+examples/*/gin-demo
+examples/*/echo-demo
+

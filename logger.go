@@ -1,4 +1,4 @@
-package core
+package goerrorkit
 
 // Logger interface cho phép user tùy chỉnh logging implementation
 // Default implementation sẽ dùng logrus, nhưng user có thể dùng zap, zerolog, etc.
@@ -23,8 +23,8 @@ var defaultLogger Logger
 //
 // Example:
 //
-//	logger := myCustomLogger{} // implements core.Logger interface
-//	core.SetLogger(logger)
+//	logger := myCustomLogger{} // implements goerrorkit.Logger interface
+//	goerrorkit.SetLogger(logger)
 func SetLogger(l Logger) {
 	defaultLogger = l
 }

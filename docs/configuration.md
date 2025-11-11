@@ -5,13 +5,13 @@
 ### Default Configuration
 
 ```go
-config.InitDefaultLogger()
+goerrorkit.InitDefaultLogger()
 ```
 
 Equivalent to:
 
 ```go
-config.InitLogger(config.LoggerOptions{
+goerrorkit.InitLogger(goerrorkit.LoggerOptions{
     ConsoleOutput: true,
     FileOutput:    true,
     FilePath:      "logs/errors.log",
@@ -28,7 +28,7 @@ config.InitLogger(config.LoggerOptions{
 #### Console Only
 
 ```go
-config.InitLogger(config.LoggerOptions{
+goerrorkit.InitLogger(goerrorkit.LoggerOptions{
     ConsoleOutput: true,
     FileOutput:    false,
     JSONFormat:    false, // Text format with colors
@@ -39,7 +39,7 @@ config.InitLogger(config.LoggerOptions{
 #### File Only (Production)
 
 ```go
-config.InitLogger(config.LoggerOptions{
+goerrorkit.InitLogger(goerrorkit.LoggerOptions{
     ConsoleOutput: false,
     FileOutput:    true,
     FilePath:      "/var/log/app/errors.log",
@@ -54,7 +54,7 @@ config.InitLogger(config.LoggerOptions{
 #### Both Console and File
 
 ```go
-config.InitLogger(config.LoggerOptions{
+goerrorkit.InitLogger(goerrorkit.LoggerOptions{
     ConsoleOutput: true,  // Development: see logs in terminal
     FileOutput:    true,  // Production: persist to file
     FilePath:      "logs/app.log",
@@ -69,13 +69,13 @@ config.InitLogger(config.LoggerOptions{
 
 ```go
 // Auto-configure for your application package
-core.ConfigureForApplication("github.com/yourname/yourapp")
+goerrorkit.ConfigureForApplication("github.com/yourname/yourapp")
 ```
 
 ### Advanced Configuration
 
 ```go
-core.SetStackTraceConfig(core.StackTraceConfig{
+goerrorkit.SetStackTraceConfig(goerrorkit.StackTraceConfig{
     // Only include these packages in stack trace
     IncludePackages: []string{
         "github.com/yourname/yourapp",
@@ -107,7 +107,7 @@ core.SetStackTraceConfig(core.StackTraceConfig{
 ### Multiple Application Packages
 
 ```go
-core.SetStackTraceConfig(core.StackTraceConfig{
+goerrorkit.SetStackTraceConfig(goerrorkit.StackTraceConfig{
     IncludePackages: []string{
         "github.com/yourname/app",      // Main app
         "github.com/yourname/services", // Services package
@@ -119,10 +119,10 @@ core.SetStackTraceConfig(core.StackTraceConfig{
 
 ## Custom Logger Implementation
 
-Bạn có thể implement interface `core.Logger` để dùng logger khác (zap, zerolog, etc.):
+Bạn có thể implement interface `goerrorkit.Logger` để dùng logger khác (zap, zerolog, etc.):
 
 ```go
-import "github.com/techmaster-vietnam/goerrorkit/core"
+import "github.com/techmaster-vietnam/goerrorkit"
 
 type MyCustomLogger struct {
     // Your logger instance
@@ -147,7 +147,7 @@ func (l *MyCustomLogger) Warn(msg string, fields map[string]interface{}) {
 // Usage
 func main() {
     logger := &MyCustomLogger{}
-    core.SetLogger(logger)
+    goerrorkit.SetLogger(logger)
 }
 ```
 
@@ -158,7 +158,7 @@ func main() {
 ```go
 func initLogger() {
     if os.Getenv("ENV") == "development" {
-        config.InitLogger(config.LoggerOptions{
+        goerrorkit.InitLogger(goerrorkit.LoggerOptions{
             ConsoleOutput: true,
             FileOutput:    false,
             JSONFormat:    false, // Text format easier to read
@@ -166,7 +166,7 @@ func initLogger() {
         })
     } else {
         // Production config
-        config.InitLogger(config.LoggerOptions{
+        goerrorkit.InitLogger(goerrorkit.LoggerOptions{
             ConsoleOutput: false,
             FileOutput:    true,
             FilePath:      "/var/log/app/errors.log",
@@ -183,7 +183,7 @@ func initLogger() {
 import "encoding/json"
 
 type Config struct {
-    Logger config.LoggerOptions `json:"logger"`
+    Logger goerrorkit.LoggerOptions `json:"logger"`
 }
 
 func loadConfig() {
@@ -191,7 +191,7 @@ func loadConfig() {
     var cfg Config
     json.Unmarshal(data, &cfg)
     
-    config.InitLogger(cfg.Logger)
+    goerrorkit.InitLogger(cfg.Logger)
 }
 ```
 

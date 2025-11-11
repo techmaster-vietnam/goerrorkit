@@ -14,15 +14,15 @@ go get github.com/techmaster-vietnam/goerrorkit
 package main
 
 import (
-    "github.com/techmaster-vietnam/goerrorkit/config"
+    "github.com/techmaster-vietnam/goerrorkit"
 )
 
 func main() {
     // Option 1: Sử dụng config mặc định
-    config.InitDefaultLogger()
+    goerrorkit.InitDefaultLogger()
     
     // Option 2: Custom config
-    config.InitLogger(config.LoggerOptions{
+    goerrorkit.InitLogger(goerrorkit.LoggerOptions{
         ConsoleOutput: true,
         FileOutput:    true,
         FilePath:      "logs/errors.log",
@@ -38,13 +38,13 @@ func main() {
 ### Bước 2: Cấu hình Stack Trace
 
 ```go
-import "github.com/techmaster-vietnam/goerrorkit/core"
+import "github.com/techmaster-vietnam/goerrorkit"
 
 func main() {
     // ...
     
     // Configure stack trace để chỉ show application code
-    core.ConfigureForApplication("github.com/yourname/yourapp")
+    goerrorkit.ConfigureForApplication("github.com/yourname/yourapp")
 }
 ```
 
@@ -83,7 +83,7 @@ func main() {
 func handler(c *fiber.Ctx) error {
     product := findProduct(id)
     if product == nil {
-        return core.NewBusinessError(404, "Product not found")
+        return goerrorkit.NewBusinessError(404, "Product not found")
     }
     return c.JSON(product)
 }
@@ -95,7 +95,7 @@ func handler(c *fiber.Ctx) error {
 func handler(c *fiber.Ctx) error {
     err := db.Connect()
     if err != nil {
-        return core.NewSystemError(err)
+        return goerrorkit.NewSystemError(err)
     }
     // ...
 }
@@ -107,7 +107,7 @@ func handler(c *fiber.Ctx) error {
 func handler(c *fiber.Ctx) error {
     age := c.Query("age")
     if age < 18 {
-        return core.NewValidationError("Age must be >= 18", map[string]interface{}{
+        return goerrorkit.NewValidationError("Age must be >= 18", map[string]interface{}{
             "field": "age",
             "min": 18,
             "received": age,
@@ -123,19 +123,18 @@ func handler(c *fiber.Ctx) error {
 package main
 
 import (
+    "github.com/techmaster-vietnam/goerrorkit"
     "github.com/techmaster-vietnam/goerrorkit/adapters/fiber"
-    "github.com/techmaster-vietnam/goerrorkit/config"
-    "github.com/techmaster-vietnam/goerrorkit/core"
     fiberv2 "github.com/gofiber/fiber/v2"
     "github.com/gofiber/fiber/v2/middleware/requestid"
 )
 
 func main() {
     // 1. Init logger
-    config.InitDefaultLogger()
+    goerrorkit.InitDefaultLogger()
     
     // 2. Configure stack trace
-    core.ConfigureForApplication("main")
+    goerrorkit.ConfigureForApplication("main")
     
     // 3. Setup Fiber
     app := fiberv2.New()
@@ -152,7 +151,7 @@ func main() {
     })
     
     app.Get("/error", func(c *fiberv2.Ctx) error {
-        return core.NewBusinessError(404, "Not found")
+        return goerrorkit.NewBusinessError(404, "Not found")
     })
     
     app.Listen(":3000")

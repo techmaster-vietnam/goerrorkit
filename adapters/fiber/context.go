@@ -2,10 +2,10 @@ package fiber
 
 import (
 	fiberv2 "github.com/gofiber/fiber/v2"
-	"github.com/techmaster-vietnam/goerrorkit/core"
+	"github.com/techmaster-vietnam/goerrorkit"
 )
 
-// FiberContext wrap Fiber's context để implement core.HTTPContext interface
+// FiberContext wrap Fiber's context để implement goerrorkit.HTTPContext interface
 type FiberContext struct {
 	ctx *fiberv2.Ctx
 }
@@ -15,28 +15,28 @@ func NewFiberContext(c *fiberv2.Ctx) *FiberContext {
 	return &FiberContext{ctx: c}
 }
 
-// Method implements core.HTTPContext
+// Method implements goerrorkit.HTTPContext
 func (f *FiberContext) Method() string {
 	return f.ctx.Method()
 }
 
-// Path implements core.HTTPContext
+// Path implements goerrorkit.HTTPContext
 func (f *FiberContext) Path() string {
 	return f.ctx.Path()
 }
 
-// GetLocal implements core.HTTPContext
+// GetLocal implements goerrorkit.HTTPContext
 func (f *FiberContext) GetLocal(key string) interface{} {
 	return f.ctx.Locals(key)
 }
 
-// Status implements core.HTTPContext
-func (f *FiberContext) Status(code int) core.HTTPContext {
+// Status implements goerrorkit.HTTPContext
+func (f *FiberContext) Status(code int) goerrorkit.HTTPContext {
 	f.ctx.Status(code)
 	return f
 }
 
-// JSON implements core.HTTPContext
+// JSON implements goerrorkit.HTTPContext
 func (f *FiberContext) JSON(data interface{}) error {
 	return f.ctx.JSON(data)
 }

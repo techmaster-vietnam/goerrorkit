@@ -1,4 +1,4 @@
-package core
+package goerrorkit
 
 // HTTPContext là interface trừu tượng cho HTTP context
 // Cho phép thư viện hoạt động với bất kỳ web framework nào

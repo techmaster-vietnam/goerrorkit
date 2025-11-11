@@ -28,19 +28,18 @@ go get github.com/techmaster-vietnam/goerrorkit
 package main
 
 import (
+    "github.com/techmaster-vietnam/goerrorkit"
     "github.com/techmaster-vietnam/goerrorkit/adapters/fiber"
-    "github.com/techmaster-vietnam/goerrorkit/config"
-    "github.com/techmaster-vietnam/goerrorkit/core"
     fiberv2 "github.com/gofiber/fiber/v2"
     "github.com/gofiber/fiber/v2/middleware/requestid"
 )
 
 func main() {
     // 1. Khởi tạo logger
-    config.InitDefaultLogger()
+    goerrorkit.InitDefaultLogger()
 
     // 2. Cấu hình stack trace cho application
-    core.ConfigureForApplication("github.com/yourname/yourapp")
+    goerrorkit.ConfigureForApplication("github.com/yourname/yourapp")
 
     // 3. Setup Fiber app
     app := fiberv2.New()
@@ -71,14 +70,14 @@ func panicHandler(c *fiberv2.Ctx) error {
 
 func errorHandler(c *fiberv2.Ctx) error {
     // Custom error với stack trace
-    return core.NewBusinessError(404, "Resource not found")
+    return goerrorkit.NewBusinessError(404, "Resource not found")
 }
 ```
 
 ### 2. Custom Logger Configuration
 
 ```go
-config.InitLogger(config.LoggerOptions{
+goerrorkit.InitLogger(goerrorkit.LoggerOptions{
     ConsoleOutput: true,           // Log ra console
     FileOutput:    true,            // Log ra file
     FilePath:      "logs/app.log", // Đường dẫn file
@@ -94,10 +93,10 @@ config.InitLogger(config.LoggerOptions{
 
 ```go
 // Option 1: Auto-configure cho application package
-core.ConfigureForApplication("github.com/yourname/myapp")
+goerrorkit.ConfigureForApplication("github.com/yourname/myapp")
 
 // Option 2: Manual configuration
-core.SetStackTraceConfig(core.StackTraceConfig{
+goerrorkit.SetStackTraceConfig(goerrorkit.StackTraceConfig{
     IncludePackages: []string{
         "github.com/yourname/myapp",
         "main", // for local development
@@ -117,12 +116,12 @@ core.SetStackTraceConfig(core.StackTraceConfig{
 ```go
 // Product không tồn tại
 if product == nil {
-    return core.NewBusinessError(404, "Product not found")
+    return goerrorkit.NewBusinessError(404, "Product not found")
 }
 
 // Hết hàng
 if product.Stock == 0 {
-    return core.NewBusinessError(400, "Product out of stock")
+    return goerrorkit.NewBusinessError(400, "Product out of stock")
 }
 ```
 
@@ -131,12 +130,12 @@ if product.Stock == 0 {
 ```go
 // Database error
 if err := db.Connect(); err != nil {
-    return core.NewSystemError(err)
+    return goerrorkit.NewSystemError(err)
 }
 
 // File system error
 if err := os.ReadFile("config.json"); err != nil {
-    return core.NewSystemError(err)
+    return goerrorkit.NewSystemError(err)
 }
 ```
 
@@ -145,7 +144,7 @@ if err := os.ReadFile("config.json"); err != nil {
 ```go
 // Single field validation
 if age < 18 {
-    return core.NewValidationError("Age must be >= 18", map[string]interface{}{
+    return goerrorkit.NewValidationError("Age must be >= 18", map[string]interface{}{
         "field":    "age",
         "min":      18,
         "received": age,
@@ -154,7 +153,7 @@ if age < 18 {
 
 // Multiple field validation
 if user.Email == "" || user.Name == "" {
-    return core.NewValidationError("Missing required fields", map[string]interface{}{
+    return goerrorkit.NewValidationError("Missing required fields", map[string]interface{}{
         "required": []string{"email", "name"},
     })
 }
@@ -165,17 +164,17 @@ if user.Email == "" || user.Name == "" {
 ```go
 // Missing token
 if token == "" {
-    return core.NewAuthError(401, "Unauthorized: Missing token")
+    return goerrorkit.NewAuthError(401, "Unauthorized: Missing token")
 }
 
 // Invalid token
 if !isValidToken(token) {
-    return core.NewAuthError(401, "Unauthorized: Invalid token")
+    return goerrorkit.NewAuthError(401, "Unauthorized: Invalid token")
 }
 
 // Insufficient permissions
 if !hasPermission(user, "admin") {
-    return core.NewAuthError(403, "Forbidden: Insufficient permissions")
+    return goerrorkit.NewAuthError(403, "Forbidden: Insufficient permissions")
 }
 ```
 
@@ -184,12 +183,12 @@ if !hasPermission(user, "admin") {
 ```go
 // Payment gateway error
 if err := paymentGateway.Charge(amount); err != nil {
-    return core.NewExternalError(502, "Payment gateway unavailable", err)
+    return goerrorkit.NewExternalError(502, "Payment gateway unavailable", err)
 }
 
 // Third-party API timeout
 if err := apiClient.Call(); err != nil {
-    return core.NewExternalError(504, "External API timeout", err)
+    return goerrorkit.NewExternalError(504, "External API timeout", err)
 }
 ```
 
@@ -234,20 +233,18 @@ Khi panic xảy ra, bạn sẽ nhận được log chi tiết như sau:
 
 ```
 goerrorkit/
-├── core/              # Framework-agnostic core logic
+├── *.go               # Core library (framework-agnostic)
 │   ├── error.go       # Error types & factories
 │   ├── handler.go     # Panic handling & conversion
 │   ├── stacktrace.go  # Stack trace capture & filtering
 │   ├── context.go     # HTTP context interface
-│   └── logger.go      # Logging interface
+│   ├── logger.go      # Logging interface
+│   └── logrus_logger.go # Logrus logger implementation
 │
 ├── adapters/          # Framework-specific adapters
 │   └── fiber/         # Fiber v2 adapter
 │       ├── middleware.go
 │       └── context.go
-│
-├── config/            # Configuration
-│   └── logger.go      # Logger setup (logrus implementation)
 │
 └── examples/          # Example applications
     └── fiber-demo/
