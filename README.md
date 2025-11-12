@@ -5,6 +5,7 @@
 ## ✨ Tính Năng Chính
 
 - ✅ **Panic recovery tự động** - Capture chính xác dòng code gây panic (không phải dòng gọi hàm)
+- ✅ **Wrap error dễ dàng** - `Wrap(err)` và `WrapWithMessage(err, msg)` tự động capture stack trace
 - ✅ **Stack trace chi tiết** - Full call chain để debug dễ dàng
 - ✅ **Framework agnostic** - Hỗ trợ Fiber, Gin, Echo, Chi (adapters)
 - ✅ **Nhiều loại error** - Business, System, Validation, Auth, External
@@ -82,6 +83,8 @@ goerrorkit.InitLogger(goerrorkit.LoggerOptions{
 
 ```go
 // Tự động lọc stack trace CHỈ HIỂN THỊ code của BẠN
+goerrorkit.ConfigureForApplication("main")
+// hoặc
 goerrorkit.ConfigureForApplication("github.com/yourname/myapp")
 ```
 
@@ -131,7 +134,162 @@ goerrorkit.Configure().
 
 ## 📝 Các Loại Error & Tình Huống Sử Dụng
 
-### 1. Business Error (4xx)
+### 1. Panic Error - Tự Động Recovery
+
+**Khi nào xảy ra:** Nil pointer, index out of range, type assertion failed, divide by zero
+
+**Ưu điểm:** Middleware tự động bắt và capture **CHÍNH XÁC** dòng code gây panic!
+
+```go
+func panicHandler(c *fiber.Ctx) error {
+    numbers := []int{1, 2, 3}
+    // ⚠️ Panic sẽ xảy ra ở dòng này
+    value := numbers[10] // panic: index out of range
+    return c.JSON(fiber.Map{"value": value})
+}
+```
+
+**Log output:**
+
+```json
+{
+  "level": "error",
+  "message": "runtime error: index out of range [10] with length 3",
+  "error_type": "PANIC",
+  "status_code": 500,
+  "function": "main.panicHandler",
+  "file": "main.go:87",  // ⭐ CHÍNH XÁC dòng gây panic!
+  "call_chain": [
+    "main.panicHandler (main.go:87)",
+    "github.com/gofiber/fiber/v2.(*App).next (app.go:512)"
+  ]
+}
+```
+
+**Không cần làm gì:** Middleware tự động handle!
+
+---
+
+### 2. Wrap Error - Đóng Gói Go Error
+
+**Khi nào dùng:** Khi có Go error từ thư viện chuẩn hoặc third-party, cần thêm context và stack trace
+
+#### 2.1. `Wrap(err)` - Đơn giản nhất
+
+**Use case:** Wrap nhanh error với message gốc
+
+```go
+// Database error
+if err := db.Query("SELECT * FROM users"); err != nil {
+    return goerrorkit.Wrap(err)
+    // → Message: "sql: connection refused"
+    // → Tự động capture: file, line, function
+}
+
+// JSON parsing error
+if err := json.Unmarshal(data, &result); err != nil {
+    return goerrorkit.Wrap(err)
+    // → Message: "invalid character '}' looking for beginning of value"
+}
+
+// File operation error  
+if err := os.ReadFile(path); err != nil {
+    return goerrorkit.Wrap(err)
+    // → Message: "open config.json: no such file or directory"
+}
+```
+
+#### 2.2. `WrapWithMessage(err, msg)` - Thêm Context
+
+**Use case:** Thêm message mô tả rõ hơn, giữ error gốc trong `cause`
+
+```go
+// Database với custom message
+if err := db.Query(query); err != nil {
+    return goerrorkit.WrapWithMessage(err, "Failed to fetch user list from database")
+    // → Message: "Failed to fetch user list from database"
+    // → Cause: "sql: connection refused"
+}
+
+// Redis với context
+if err := redis.Get(key); err != nil {
+    return goerrorkit.WrapWithMessage(err, "Failed to get user session from cache")
+}
+
+// External API với context
+if err := paymentAPI.Charge(amount); err != nil {
+    return goerrorkit.WrapWithMessage(err, "Payment processing failed")
+}
+```
+
+#### 2.3. Wrap + WithData - Thêm Metadata
+
+**Use case:** Cần thêm dữ liệu đặc thù để debug
+
+```go
+// Database query với data
+if err := db.Query(query); err != nil {
+    return goerrorkit.Wrap(err).WithData(map[string]interface{}{
+        "query": query,
+        "table": "users",
+        "timeout": "5s",
+    })
+}
+
+// Redis với data
+if err := redis.Get(key); err != nil {
+    return goerrorkit.WrapWithMessage(err, "Cache miss").WithData(map[string]interface{}{
+        "key": key,
+        "ttl": 3600,
+    })
+}
+
+// File operation với data
+if err := os.ReadFile(path); err != nil {
+    return goerrorkit.Wrap(err).WithData(map[string]interface{}{
+        "path": path,
+        "size": fileSize,
+    })
+}
+```
+
+#### 2.4. Wrap + WithCallChain - Debug Phức Tạp
+
+**Use case:** Lỗi phức tạp, cần trace flow qua nhiều tầng
+
+```go
+// Complex operation với full trace
+if err := complexDatabaseOperation(); err != nil {
+    return goerrorkit.WrapWithMessage(err, "Complex operation failed").
+        WithData(map[string]interface{}{
+            "operation": "bulk_insert",
+            "records": 1000,
+        }).
+        WithCallChain()
+}
+```
+
+**Log output:**
+
+```json
+{
+  "level": "error",
+  "message": "Failed to fetch user list from database",
+  "error_type": "SYSTEM",
+  "status_code": 500,
+  "function": "services.GetUsers",
+  "file": "user_service.go:45",
+  "cause": "sql: connection refused",
+  "data": {
+    "query": "SELECT * FROM users WHERE active = true",
+    "table": "users"
+  }
+}
+```
+
+---
+
+### 3. Business Error (4xx)
 
 **Khi nào dùng:** Lỗi business logic, user có thể fix được
 
@@ -150,12 +308,14 @@ if product.Stock == 0 {
 }
 ```
 
-### 2. System Error (5xx)
+---
 
-**Khi nào dùng:** Lỗi hệ thống, database, file system, network
+### 4. System Error (5xx)
+
+**Khi nào dùng:** Lỗi hệ thống không mong muốn (khuyến nghị dùng `Wrap()` thay thế)
 
 ```go
-// Tình huống 1: Database error
+// Cách cũ (vẫn dùng được)
 if err := db.Connect(); err != nil {
     return goerrorkit.NewSystemError(err).WithData(map[string]interface{}{
         "database": "postgres",
@@ -163,13 +323,18 @@ if err := db.Connect(); err != nil {
     })
 }
 
-// Tình huống 2: File system error
-if err := os.ReadFile("config.json"); err != nil {
-    return goerrorkit.NewSystemError(err)
+// ⭐ Cách mới (khuyên dùng)
+if err := db.Connect(); err != nil {
+    return goerrorkit.WrapWithMessage(err, "Database connection failed").WithData(map[string]interface{}{
+        "database": "postgres",
+        "host": "localhost:5432",
+    })
 }
 ```
 
-### 3. Validation Error (400)
+---
+
+### 5. Validation Error (400)
 
 **Khi nào dùng:** Input không hợp lệ, missing fields, wrong format
 
@@ -191,7 +356,9 @@ if user.Email == "" || user.Name == "" {
 }
 ```
 
-### 4. Auth Error (401, 403)
+---
+
+### 6. Auth Error (401, 403)
 
 **Khi nào dùng:** Authentication, authorization issues
 
@@ -217,12 +384,14 @@ if !hasPermission(user, "admin") {
 }
 ```
 
-### 5. External Error (502-504)
+---
 
-**Khi nào dùng:** Lỗi từ third-party services (payment, SMS, email)
+### 7. External Error (502-504)
+
+**Khi nào dùng:** Lỗi từ third-party services (khuyến nghị dùng `WrapWithMessage()` thay thế)
 
 ```go
-// Tình huống 1: Payment gateway error
+// Chỉ định ra đây là ExternalError
 if err := paymentGateway.Charge(amount); err != nil {
     return goerrorkit.NewExternalError(502, "Payment gateway unavailable", err).WithData(map[string]interface{}{
         "gateway": "stripe",
@@ -230,11 +399,11 @@ if err := paymentGateway.Charge(amount); err != nil {
     })
 }
 
-// Tình huống 2: API timeout
-if err := apiClient.Call(); err != nil {
-    return goerrorkit.NewExternalError(504, "External API timeout", err).WithData(map[string]interface{}{
-        "api": "/users",
-        "timeout": "30s",
+// Tự động bọc lấy error trả về kiểu SystemError
+if err := paymentAPI.Charge(amount); err != nil {
+    return goerrorkit.WrapWithMessage(err, "Payment gateway unavailable").WithData(map[string]interface{}{
+        "gateway": "stripe",
+        "amount": amount,
     })
 }
 ```
@@ -425,6 +594,3 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
----
-
-⭐ Nếu thấy hữu ích, hãy cho repo một star trên GitHub!

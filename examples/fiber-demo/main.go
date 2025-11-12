@@ -67,11 +67,17 @@ func main() {
 
 	// 5. Routes - Demo different error types
 	app.Get("/", homeHandler)
+	app.Get("/favicon.ico", faviconHandler) // Serve favicon
+	app.Get("/favicon.svg", faviconHandler) // Modern SVG favicon
 
 	// Panic demos
 	app.Get("/panic/division", panicDivisionHandler)
 	app.Get("/panic/index", panicIndexHandler)
 	app.Get("/panic/stack", panicStackHandler)
+
+	// Wrap error demos (NEW!)
+	app.Get("/error/wrap", wrapErrorHandler)
+	app.Get("/error/wrap-message", wrapWithMessageHandler)
 
 	// Custom error demos
 	app.Get("/error/business", businessErrorHandler)
@@ -89,6 +95,9 @@ func main() {
 	fmt.Println("  GET  /panic/division       - Division by zero panic")
 	fmt.Println("  GET  /panic/index          - Index out of range panic")
 	fmt.Println("  GET  /panic/stack          - Deep call stack panic")
+	fmt.Println("\n  🎁 Wrap Error Demos (NEW!):")
+	fmt.Println("  GET  /error/wrap           - Wrap(err) - Đơn giản nhất")
+	fmt.Println("  GET  /error/wrap-message   - WrapWithMessage(err, msg) - Thêm context")
 	fmt.Println("\n  ⚠️  Custom Error Demos:")
 	fmt.Println("  GET  /error/business       - Business logic error (404)")
 	fmt.Println("  GET  /error/system         - System error (500)")
@@ -104,10 +113,13 @@ func main() {
 }
 
 func homeHandler(c *fiberv2.Ctx) error {
-	return c.JSON(fiberv2.Map{
-		"message": "Welcome to GoErrorKit Demo!",
-		"status":  "ok",
-	})
+	// Serve the index.html file
+	return c.SendFile("./index.html")
+}
+
+func faviconHandler(c *fiberv2.Ctx) error {
+	// Serve favicon.svg (modern browsers support SVG favicons)
+	return c.SendFile("./favicon.svg")
 }
 
 // ============================================================================
@@ -152,6 +164,107 @@ func callZ() int {
 
 func callW() int {
 	return GetElement() // Panic happens here, full call chain will be logged
+}
+
+// ============================================================================
+// Wrap Error Handlers - Demonstrate Wrap() and WrapWithMessage()
+// ============================================================================
+
+// wrapErrorHandler demonstrates goerrorkit.Wrap(err)
+// ✅ Use case: Wrap nhanh Go error với message gốc, tự động capture stack trace
+func wrapErrorHandler(c *fiberv2.Ctx) error {
+	errorType := c.Query("type", "json")
+
+	switch errorType {
+	case "json":
+		// Simulate JSON parsing error
+		err := fmt.Errorf("json: invalid character '}' looking for beginning of value")
+		// ⭐ Wrap() - Đơn giản nhất, giữ nguyên message gốc
+		// → Message: error message gốc
+		// → Type: SystemError, Code: 500
+		// → Tự động capture: file, line, function
+		return goerrorkit.Wrap(err)
+
+	case "database":
+		// Simulate database connection error
+		err := fmt.Errorf("sql: connection refused")
+		// ⭐ Wrap() với error database
+		return goerrorkit.Wrap(err)
+
+	case "file":
+		// Simulate file not found error
+		err := fmt.Errorf("open config.json: no such file or directory")
+		// ⭐ Wrap() với .WithData() - Thêm metadata
+		return goerrorkit.Wrap(err).WithData(map[string]interface{}{
+			"path":      "config.json",
+			"operation": "read",
+		})
+
+	case "network":
+		// Simulate network timeout
+		err := fmt.Errorf("net/http: request timeout after 30s")
+		// ⭐ Wrap() + WithData() + WithCallChain()
+		return goerrorkit.Wrap(err).
+			WithData(map[string]interface{}{
+				"url":     "https://api.example.com/users",
+				"timeout": "30s",
+				"retries": 3,
+			}).
+			WithCallChain()
+	}
+
+	return c.JSON(fiberv2.Map{"message": "No error"})
+}
+
+// wrapWithMessageHandler demonstrates goerrorkit.WrapWithMessage(err, msg)
+// ✅ Use case: Wrap error với custom message để thêm context, giữ error gốc trong Cause
+func wrapWithMessageHandler(c *fiberv2.Ctx) error {
+	scenario := c.Query("scenario", "database")
+
+	switch scenario {
+	case "database":
+		// Simulate database query error
+		err := fmt.Errorf("connection refused")
+		// ⭐ WrapWithMessage() - Thêm context message
+		// → Message: "Failed to fetch user list from database"
+		// → Cause: "connection refused"
+		// → Type: SystemError, Code: 500
+		return goerrorkit.WrapWithMessage(err, "Failed to fetch user list from database")
+
+	case "redis":
+		// Simulate Redis cache error
+		err := fmt.Errorf("redis: connection timeout")
+		// ⭐ WrapWithMessage() với .WithData()
+		return goerrorkit.WrapWithMessage(err, "Failed to get user session from cache").WithData(map[string]interface{}{
+			"key": "user:session:12345",
+			"ttl": 3600,
+		})
+
+	case "payment":
+		// Simulate payment API error
+		err := fmt.Errorf("stripe: card declined")
+		// ⭐ WrapWithMessage() + WithData() - Detailed context
+		return goerrorkit.WrapWithMessage(err, "Payment processing failed").WithData(map[string]interface{}{
+			"gateway":    "stripe",
+			"amount":     10000,
+			"currency":   "VND",
+			"payment_id": "pay_123456",
+		})
+
+	case "email":
+		// Simulate email service error
+		err := fmt.Errorf("smtp: authentication failed")
+		// ⭐ WrapWithMessage() + WithData() + WithCallChain()
+		return goerrorkit.WrapWithMessage(err, "Failed to send verification email").
+			WithData(map[string]interface{}{
+				"to":       "user@example.com",
+				"template": "email_verification",
+				"smtp":     "smtp.gmail.com:587",
+			}).
+			WithCallChain()
+	}
+
+	return c.JSON(fiberv2.Map{"message": "No error"})
 }
 
 // ============================================================================

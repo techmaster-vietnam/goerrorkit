@@ -82,6 +82,72 @@ func (e *AppError) WithCallChain() *AppError {
 // Factory Functions - Tạo Error Dễ Dàng
 // ============================================================================
 
+// Wrap đóng gói một Go error thành SystemError với stack trace tự động
+// Đây là cách nhanh nhất để wrap error với thông tin chi tiết về vị trí phát sinh
+//
+// Example:
+//
+//	if err := db.Query(); err != nil {
+//	    return goerrorkit.Wrap(err)
+//	}
+//
+//	// Với custom data
+//	if err := json.Unmarshal(data, &result); err != nil {
+//	    return goerrorkit.Wrap(err).WithData(map[string]interface{}{
+//	        "input_size": len(data),
+//	        "expected_type": "User",
+//	    })
+//	}
+func Wrap(err error) *AppError {
+	if err == nil {
+		return nil
+	}
+	file, line, function := getCallerInfo(1)
+	return &AppError{
+		Type:    SystemError,
+		Code:    500,
+		Message: err.Error(),
+		Cause:   err,
+		Details: map[string]interface{}{
+			"function": function,
+			"file":     fmt.Sprintf("%s:%d", file, line),
+		},
+	}
+}
+
+// WrapWithMessage đóng gói Go error với custom message để thêm context
+// Message mô tả rõ hơn về ngữ cảnh lỗi, error gốc vẫn được giữ trong Cause
+//
+// Example:
+//
+//	if err := redis.Get(key); err != nil {
+//	    return goerrorkit.WrapWithMessage(err, "Failed to get user session from cache")
+//	}
+//
+//	// Với custom data
+//	if err := os.ReadFile(path); err != nil {
+//	    return goerrorkit.WrapWithMessage(err, "Failed to read config file").WithData(map[string]interface{}{
+//	        "path": path,
+//	        "attempted_at": time.Now(),
+//	    })
+//	}
+func WrapWithMessage(err error, message string) *AppError {
+	if err == nil {
+		return nil
+	}
+	file, line, function := getCallerInfo(1)
+	return &AppError{
+		Type:    SystemError,
+		Code:    500,
+		Message: message,
+		Cause:   err,
+		Details: map[string]interface{}{
+			"function": function,
+			"file":     fmt.Sprintf("%s:%d", file, line),
+		},
+	}
+}
+
 // NewBusinessError tạo lỗi business logic với stack trace chính xác
 // Sử dụng .WithData() để thêm dữ liệu đặc thù nếu cần
 //
