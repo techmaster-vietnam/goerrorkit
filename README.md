@@ -25,7 +25,6 @@ package main
 
 import (
     "github.com/techmaster-vietnam/goerrorkit"
-    "github.com/techmaster-vietnam/goerrorkit/adapters/fiber"
     fiberv2 "github.com/gofiber/fiber/v2"
     "github.com/gofiber/fiber/v2/middleware/requestid"
 )
@@ -40,7 +39,7 @@ func main() {
     // 3. Setup Fiber
     app := fiberv2.New()
     app.Use(requestid.New())
-    app.Use(fiber.ErrorHandler()) // Middleware xử lý error
+    app.Use(goerrorkit.FiberErrorHandler()) // Middleware xử lý error
 
     // 4. Routes
     app.Get("/", homeHandler)

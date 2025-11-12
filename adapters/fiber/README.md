@@ -11,12 +11,13 @@ go get github.com/gofiber/fiber/v2
 
 ## Sử dụng
 
+### Cách 1: Import trực tiếp từ package chính (Khuyên dùng)
+
 ```go
 package main
 
 import (
     "github.com/techmaster-vietnam/goerrorkit"
-    "github.com/techmaster-vietnam/goerrorkit/adapters/fiber"
     fiberv2 "github.com/gofiber/fiber/v2"
     "github.com/gofiber/fiber/v2/middleware/requestid"
 )
@@ -33,7 +34,7 @@ func main() {
 
     // 4. Thêm middleware (RequestID phải trước ErrorHandler)
     app.Use(requestid.New())
-    app.Use(fiber.ErrorHandler())
+    app.Use(goerrorkit.FiberErrorHandler()) // ⭐ Sử dụng trực tiếp từ goerrorkit
 
     // 5. Định nghĩa routes với error handling tự động
     app.Get("/panic", func(c *fiberv2.Ctx) error {
@@ -54,6 +55,25 @@ func main() {
     })
 
     app.Listen(":3000")
+}
+```
+
+### Cách 2: Import từ adapter (Vẫn hỗ trợ)
+
+```go
+package main
+
+import (
+    "github.com/techmaster-vietnam/goerrorkit"
+    "github.com/techmaster-vietnam/goerrorkit/adapters/fiber"
+    fiberv2 "github.com/gofiber/fiber/v2"
+    "github.com/gofiber/fiber/v2/middleware/requestid"
+)
+
+func main() {
+    // ...
+    app.Use(fiber.ErrorHandler()) // Cách cũ vẫn hoạt động
+    // ...
 }
 ```
 
