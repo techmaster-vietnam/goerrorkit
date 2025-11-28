@@ -20,6 +20,15 @@ func main() {
 	//    - AuthError (level: warn)       → Console: ✓, File: ✗
 	//    - SystemError (level: error)    → Console: ✓, File: ✓
 	//    - PanicError (level: error)     → Console: ✓, File: ✓
+	//
+	// ⚠️  QUAN TRỌNG - TRACE & DEBUG LOGGING:
+	//    - Trace/Debug CHỈ hoạt động khi build với tag: -tags=debug
+	//    - Development: go run -tags=debug main.go
+	//    - Production:  go run main.go (trace/debug = no-op)
+	//
+	// 📌 LogLevel="trace" trong config có nghĩa là:
+	//    - Với -tags=debug:  Log TRACE, DEBUG, INFO, WARN, ERROR
+	//    - Không tag debug:  Log INFO, WARN, ERROR (trace/debug bị tắt)
 	goerrorkit.InitLogger(goerrorkit.LoggerOptions{
 		ConsoleOutput: true,
 		FileOutput:    true,
@@ -28,7 +37,7 @@ func main() {
 		MaxFileSize:   10,
 		MaxBackups:    5,
 		MaxAge:        30,
-		LogLevel:      "warn",  // Console log từ warn trở lên
+		LogLevel:      "trace", // Console log từ trace (cần -tags=debug), warn, error trở lên
 		FileLogLevel:  "error", // File chỉ log error và panic (bỏ qua warn)
 	})
 
@@ -112,6 +121,7 @@ func main() {
 	app.Get("/error/log-level", logLevelDemoHandler)
 
 	// Development tools - Trace & Debug demos (NEW!)
+	// ⚠️  QUAN TRỌNG: Chỉ hoạt động khi build với: go run -tags=debug main.go
 	app.Get("/dev/trace", traceHandler)
 	app.Get("/dev/debug", debugHandler)
 	app.Get("/dev/trace-complex", traceComplexFlowHandler)
@@ -139,6 +149,9 @@ func main() {
 	fmt.Println("       ?level=warn   → Console: ✓, File: ✗")
 	fmt.Println("       ?level=error  → Console: ✓, File: ✓")
 	fmt.Println("\n  🔧 Development Tools - Trace & Debug:")
+	fmt.Println("  ⚠️  CHÚ Ý: Cần build với -tags=debug để trace/debug hoạt động!")
+	fmt.Println("     ✅ go run -tags=debug main.go    (development)")
+	fmt.Println("     ❌ go run main.go                (trace/debug không hoạt động)")
 	fmt.Println("  GET  /dev/trace          - Trace single operation")
 	fmt.Println("  GET  /dev/debug          - Debug with detailed context")
 	fmt.Println("  GET  /dev/trace-complex  - Trace complex multi-step flow")
@@ -625,6 +638,10 @@ func logLevelDemoHandler(c *fiberv2.Ctx) error {
 // traceHandler demonstrates simple trace logging for a single operation
 // 🎯 USE CASE: Track một operation đơn giản trong development
 // ⭐ Trace level thường chỉ dùng trong dev, không nên log vào file production
+//
+// ⚠️  QUAN TRỌNG: Handler này CHỈ hoạt động khi build với -tags=debug
+//   - Chạy: go run -tags=debug main.go
+//   - Nếu chạy không có tag, Trace() sẽ là no-op (không làm gì)
 func traceHandler(c *fiberv2.Ctx) error {
 	operation := c.Query("op", "fetch_user")
 
@@ -635,7 +652,9 @@ func traceHandler(c *fiberv2.Ctx) error {
 
 		// ⭐ Trace log - Không phải error, chỉ để track flow
 		// Level: "info" hoặc "debug" (tùy implementation)
-		fmt.Printf("🔍 [TRACE] Fetching user from database | user_id=%s\n", userID)
+		goerrorkit.Trace("Fetching user from database", map[string]interface{}{
+			"user_id": userID,
+		})
 
 		// Simulate successful fetch
 		return c.JSON(fiberv2.Map{
@@ -649,7 +668,10 @@ func traceHandler(c *fiberv2.Ctx) error {
 		key := c.Query("key", "user:12345")
 
 		// ⭐ Trace cache miss (not an error, just tracking)
-		fmt.Printf("🔍 [TRACE] Cache miss | key=%s | action=fetch_from_db\n", key)
+		goerrorkit.Trace("Cache miss", map[string]interface{}{
+			"key":    key,
+			"action": "fetch_from_db",
+		})
 
 		return c.JSON(fiberv2.Map{
 			"message": "Cache miss - fetched from database",
@@ -663,7 +685,10 @@ func traceHandler(c *fiberv2.Ctx) error {
 		duration := "2.5s"
 
 		// ⭐ Trace slow query (warning, not error)
-		fmt.Printf("🐌 [TRACE] Slow query detected | duration=%s | query=%s\n", duration, query)
+		goerrorkit.Trace("Slow query detected", map[string]interface{}{
+			"duration": duration,
+			"query":    query,
+		})
 
 		return c.JSON(fiberv2.Map{
 			"message":  "Query executed but slow",
@@ -681,6 +706,10 @@ func traceHandler(c *fiberv2.Ctx) error {
 // debugHandler demonstrates debug logging with detailed context
 // 🎯 USE CASE: Log chi tiết variable states, object properties trong development
 // ⭐ Debug logs giúp hiểu rõ state của application tại một thời điểm
+//
+// ⚠️  QUAN TRỌNG: Handler này CHỈ hoạt động khi build với -tags=debug
+//   - Chạy: go run -tags=debug main.go
+//   - Nếu chạy không có tag, Debug() sẽ là no-op (không làm gì)
 func debugHandler(c *fiberv2.Ctx) error {
 	scenario := c.Query("scenario", "user_login")
 
@@ -690,11 +719,12 @@ func debugHandler(c *fiberv2.Ctx) error {
 		username := c.Query("username", "john@example.com")
 
 		// ⭐ Debug log - Log detailed state
-		fmt.Println("🐛 [DEBUG] User login attempt")
-		fmt.Printf("  → username: %s\n", username)
-		fmt.Printf("  → ip_address: %s\n", c.IP())
-		fmt.Printf("  → user_agent: %s\n", c.Get("User-Agent"))
-		fmt.Printf("  → timestamp: %s\n", "2025-11-28T10:30:00Z")
+		goerrorkit.Debug("User login attempt", map[string]interface{}{
+			"username":   username,
+			"ip_address": c.IP(),
+			"user_agent": c.Get("User-Agent"),
+			"timestamp":  "2025-11-28T10:30:00Z",
+		})
 
 		return c.JSON(fiberv2.Map{
 			"message": "Login successful",
@@ -707,12 +737,14 @@ func debugHandler(c *fiberv2.Ctx) error {
 		currency := c.Query("currency", "VND")
 
 		// ⭐ Debug log - Track payment state
-		fmt.Println("🐛 [DEBUG] Processing payment")
-		fmt.Printf("  → amount: %s %s\n", amount, currency)
-		fmt.Printf("  → gateway: stripe\n")
-		fmt.Printf("  → customer_id: cust_123456\n")
-		fmt.Printf("  → payment_method: card_****1234\n")
-		fmt.Printf("  → state: validating → processing → completed\n")
+		goerrorkit.Debug("Processing payment", map[string]interface{}{
+			"amount":         amount,
+			"currency":       currency,
+			"gateway":        "stripe",
+			"customer_id":    "cust_123456",
+			"payment_method": "card_****1234",
+			"state":          "validating → processing → completed",
+		})
 
 		return c.JSON(fiberv2.Map{
 			"message": "Payment processed",
@@ -724,14 +756,15 @@ func debugHandler(c *fiberv2.Ctx) error {
 		service := c.Query("service", "user-service")
 
 		// ⭐ Debug log - Track API request/response
-		fmt.Println("🐛 [DEBUG] External API call")
-		fmt.Printf("  → service: %s\n", service)
-		fmt.Printf("  → endpoint: https://api.example.com/users/123\n")
-		fmt.Printf("  → method: GET\n")
-		fmt.Printf("  → headers: {Authorization: Bearer ***, Content-Type: application/json}\n")
-		fmt.Printf("  → request_id: req_abc123\n")
-		fmt.Printf("  → response_time: 150ms\n")
-		fmt.Printf("  → status_code: 200\n")
+		goerrorkit.Debug("External API call", map[string]interface{}{
+			"service":       service,
+			"endpoint":      "https://api.example.com/users/123",
+			"method":        "GET",
+			"headers":       "Authorization: Bearer ***, Content-Type: application/json",
+			"request_id":    "req_abc123",
+			"response_time": "150ms",
+			"status_code":   200,
+		})
 
 		return c.JSON(fiberv2.Map{
 			"message": "API call successful",
@@ -748,64 +781,76 @@ func debugHandler(c *fiberv2.Ctx) error {
 // traceComplexFlowHandler demonstrates tracing a complex multi-step operation
 // 🎯 USE CASE: Trace toàn bộ flow của một operation phức tạp với nhiều steps
 // ⭐ Giúp hiểu rõ flow execution và identify performance bottlenecks
+//
+// ⚠️  QUAN TRỌNG: Handler này CHỈ hoạt động khi build với -tags=debug
+//   - Chạy: go run -tags=debug main.go
+//   - Nếu chạy không có tag, Trace() sẽ là no-op (không làm gì)
 func traceComplexFlowHandler(c *fiberv2.Ctx) error {
 	orderID := c.Query("order_id", "ORD-12345")
 
 	// ⭐ Start trace
-	fmt.Println("🔍 [TRACE] === Order Processing Flow Started ===")
-	fmt.Printf("  → order_id: %s\n", orderID)
-	fmt.Printf("  → timestamp: 2025-11-28T10:30:00Z\n\n")
+	goerrorkit.Trace("Order Processing Flow Started", map[string]interface{}{
+		"order_id":  orderID,
+		"timestamp": "2025-11-28T10:30:00Z",
+	})
 
 	// Step 1: Validate order
-	fmt.Println("  [STEP 1] Validating order...")
-	fmt.Printf("    ✓ Order exists\n")
-	fmt.Printf("    ✓ Customer verified (customer_id: CUST-456)\n")
-	fmt.Printf("    ✓ Payment method valid\n")
-	fmt.Printf("    ⏱ Duration: 50ms\n\n")
+	goerrorkit.Trace("Step 1: Validating order", map[string]interface{}{
+		"order_exists":   true,
+		"customer_id":    "CUST-456",
+		"payment_method": "valid",
+		"duration_ms":    50,
+	})
 
 	// Step 2: Check inventory
-	fmt.Println("  [STEP 2] Checking inventory...")
-	fmt.Printf("    → product_id: PROD-789\n")
-	fmt.Printf("    → requested_qty: 2\n")
-	fmt.Printf("    → available_qty: 10\n")
-	fmt.Printf("    ✓ Stock available\n")
-	fmt.Printf("    ⏱ Duration: 120ms\n\n")
+	goerrorkit.Trace("Step 2: Checking inventory", map[string]interface{}{
+		"product_id":    "PROD-789",
+		"requested_qty": 2,
+		"available_qty": 10,
+		"stock_status":  "available",
+		"duration_ms":   120,
+	})
 
 	// Step 3: Reserve inventory
-	fmt.Println("  [STEP 3] Reserving inventory...")
-	fmt.Printf("    → warehouse: WH-01\n")
-	fmt.Printf("    → reservation_id: RES-999\n")
-	fmt.Printf("    ✓ Inventory reserved\n")
-	fmt.Printf("    ⏱ Duration: 80ms\n\n")
+	goerrorkit.Trace("Step 3: Reserving inventory", map[string]interface{}{
+		"warehouse":      "WH-01",
+		"reservation_id": "RES-999",
+		"status":         "reserved",
+		"duration_ms":    80,
+	})
 
 	// Step 4: Process payment
-	fmt.Println("  [STEP 4] Processing payment...")
-	fmt.Printf("    → amount: 200,000 VND\n")
-	fmt.Printf("    → gateway: stripe\n")
-	fmt.Printf("    → transaction_id: TXN-111\n")
-	fmt.Printf("    ✓ Payment captured\n")
-	fmt.Printf("    ⏱ Duration: 450ms\n\n")
+	goerrorkit.Trace("Step 4: Processing payment", map[string]interface{}{
+		"amount":         "200,000 VND",
+		"gateway":        "stripe",
+		"transaction_id": "TXN-111",
+		"status":         "captured",
+		"duration_ms":    450,
+	})
 
 	// Step 5: Create shipment
-	fmt.Println("  [STEP 5] Creating shipment...")
-	fmt.Printf("    → carrier: DHL\n")
-	fmt.Printf("    → tracking_number: DHL123456789\n")
-	fmt.Printf("    → estimated_delivery: 2025-12-02\n")
-	fmt.Printf("    ✓ Shipment created\n")
-	fmt.Printf("    ⏱ Duration: 200ms\n\n")
+	goerrorkit.Trace("Step 5: Creating shipment", map[string]interface{}{
+		"carrier":            "DHL",
+		"tracking_number":    "DHL123456789",
+		"estimated_delivery": "2025-12-02",
+		"status":             "created",
+		"duration_ms":        200,
+	})
 
 	// Step 6: Send confirmation
-	fmt.Println("  [STEP 6] Sending confirmation email...")
-	fmt.Printf("    → to: customer@example.com\n")
-	fmt.Printf("    → template: order_confirmation\n")
-	fmt.Printf("    ✓ Email sent\n")
-	fmt.Printf("    ⏱ Duration: 300ms\n\n")
+	goerrorkit.Trace("Step 6: Sending confirmation email", map[string]interface{}{
+		"to":          "customer@example.com",
+		"template":    "order_confirmation",
+		"status":      "sent",
+		"duration_ms": 300,
+	})
 
 	// ⭐ End trace with summary
-	fmt.Println("🔍 [TRACE] === Order Processing Flow Completed ===")
-	fmt.Printf("  ✅ Total duration: 1,200ms\n")
-	fmt.Printf("  ✅ Order status: confirmed\n")
-	fmt.Printf("  ✅ All steps successful\n\n")
+	goerrorkit.Trace("Order Processing Flow Completed", map[string]interface{}{
+		"total_duration_ms": 1200,
+		"order_status":      "confirmed",
+		"all_steps":         "successful",
+	})
 
 	return c.JSON(fiberv2.Map{
 		"message":         "Order processed successfully",

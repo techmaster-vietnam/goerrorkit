@@ -44,6 +44,60 @@ func GetLogger() Logger {
 	return defaultLogger
 }
 
+// ============================================================================
+// Convenience Functions - Wrapper methods để gọi trực tiếp
+// ============================================================================
+
+// Error logs error level message
+// Shorthand cho GetLogger().Error(msg, fields)
+func Error(msg string, fields map[string]interface{}) {
+	if defaultLogger != nil {
+		defaultLogger.Error(msg, fields)
+	}
+}
+
+// Info logs info level message
+// Shorthand cho GetLogger().Info(msg, fields)
+func Info(msg string, fields map[string]interface{}) {
+	if defaultLogger != nil {
+		defaultLogger.Info(msg, fields)
+	}
+}
+
+// Debug logs debug level message
+// Shorthand cho GetLogger().Debug(msg, fields)
+// Lưu ý: Chỉ hoạt động khi build với tag -tags=debug
+func Debug(msg string, fields map[string]interface{}) {
+	if defaultLogger != nil {
+		defaultLogger.Debug(msg, fields)
+	}
+}
+
+// Trace logs trace level message
+// Shorthand cho GetLogger().Trace(msg, fields)
+// Lưu ý: Chỉ hoạt động khi build với tag -tags=debug
+func Trace(msg string, fields map[string]interface{}) {
+	if defaultLogger != nil {
+		defaultLogger.Trace(msg, fields)
+	}
+}
+
+// Warn logs warning level message
+// Shorthand cho GetLogger().Warn(msg, fields)
+func Warn(msg string, fields map[string]interface{}) {
+	if defaultLogger != nil {
+		defaultLogger.Warn(msg, fields)
+	}
+}
+
+// Panic logs panic level message
+// Shorthand cho GetLogger().Panic(msg, fields)
+func Panic(msg string, fields map[string]interface{}) {
+	if defaultLogger != nil {
+		defaultLogger.Panic(msg, fields)
+	}
+}
+
 // LogError xử lý logging cho AppError
 // Sử dụng appropriate log level dựa trên error.GetLogLevel()
 func LogError(appErr *AppError, requestPath string) {
