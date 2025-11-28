@@ -167,8 +167,43 @@
         </div>
     </div>
 
+    <div class="section">
+        <h2>🎯 Log Level Override Demo</h2>
+        <p style="color: #6c757d; margin-bottom: 20px;">Control logging behavior with .Level() API</p>
+        <div class="endpoints">
+            <a href="/error/log-level?level=warn&scenario=validation" class="endpoint">
+                <span class="method">GET</span>
+                <span class="path">/error/log-level</span>
+                <span class="description">Demo log level override (try: ?level=warn/error & ?scenario=validation/auth/business)</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🔧 Development Tools - Trace & Debug</h2>
+        <p style="color: #6c757d; margin-bottom: 20px;">Track application flow and debug in development environment</p>
+        <div class="endpoints">
+            <a href="/dev/trace?op=fetch_user&user_id=12345" class="endpoint">
+                <span class="method">GET</span>
+                <span class="path">/dev/trace</span>
+                <span class="description">Trace single operation (try: ?op=fetch_user, cache_miss, slow_query)</span>
+            </a>
+            <a href="/dev/debug?scenario=user_login&username=john@example.com" class="endpoint">
+                <span class="method">GET</span>
+                <span class="path">/dev/debug</span>
+                <span class="description">Debug with detailed context (try: ?scenario=user_login, payment_process, api_request)</span>
+            </a>
+            <a href="/dev/trace-complex?order_id=ORD-12345" class="endpoint">
+                <span class="method">GET</span>
+                <span class="path">/dev/trace-complex</span>
+                <span class="description">Trace complex multi-step flow (6 steps: validate → inventory → payment → shipment) ⭐</span>
+            </a>
+        </div>
+    </div>
+
     <div class="footer">
         <p>📄 Check <code>logs/errors.log</code> for detailed error logs</p>
+        <p>💡 Console logs show trace & debug information for development</p>
         <p>Built with ❤️ using GoErrorKit</p>
     </div>
 </body>

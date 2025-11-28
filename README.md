@@ -11,6 +11,7 @@
 - ✅ **Nhiều loại error** - Business, System, Validation, Auth, External
 - ✅ **Structured logging** - JSON format với full context
 - ✅ **Fluent API** - Chain methods dễ dùng: `.WithData().WithCallChain()`
+- 🚀 **Build modes** - Debug/trace logs tự động loại bỏ trong production build (zero overhead)
 
 ## 📦 Cài Đặt
 
@@ -57,14 +58,15 @@ func homeHandler(c *fiberv2.Ctx) error {
 
 ```go
 goerrorkit.InitLogger(goerrorkit.LoggerOptions{
-    ConsoleOutput: true,           // Log ra console (development)
-    FileOutput:    true,            // Log ra file (production)
-    FilePath:      "logs/app.log", // Đường dẫn file log
-    JSONFormat:    true,            // JSON format (dễ parse, search)
-    MaxFileSize:   10,              // 10MB/file (tự động rotate)
-    MaxBackups:    5,               // Giữ 5 file backup
-    MaxAge:        30,              // Giữ log 30 ngày
-    LogLevel:      "error",         // Mức log: error, warn, info, debug
+    ConsoleOutput: true,            // Log ra console (development)
+    FileOutput:    true,             // Log ra file (production)
+    FilePath:      "logs/app.log",  // Đường dẫn file log
+    JSONFormat:    true,             // JSON format (dễ parse, search)
+    MaxFileSize:   10,               // 10MB/file (tự động rotate)
+    MaxBackups:    5,                // Giữ 5 file backup
+    MaxAge:        30,               // Giữ log 30 ngày
+    LogLevel:      "warn",           // Console: log từ warn trở lên
+    FileLogLevel:  "error",          // File: CHỈ log error/panic (bỏ qua warn)
 })
 ```
 
@@ -75,6 +77,53 @@ goerrorkit.InitLogger(goerrorkit.LoggerOptions{
 - `MaxFileSize`: Kích thước tối đa mỗi file trước khi rotate (tránh file quá lớn)
 - `MaxBackups`: Số lượng file backup giữ lại (cân bằng giữa storage và history)
 - `MaxAge`: Số ngày giữ log (tự động xóa log cũ)
+- `LogLevel`: Mức log tối thiểu cho **console** (trace < debug < info < warn < error < panic)
+- `FileLogLevel`: Mức log tối thiểu cho **file** (bỏ qua validation/auth errors không nghiêm trọng)
+
+**💡 Best Practice:**
+- **Development**: `LogLevel: "warn"`, `FileLogLevel: "error"` 
+- **Production**: `LogLevel: "error"`, `FileLogLevel: "error"`
+- **Debug**: `LogLevel: "debug"`, `FileLogLevel: "panic"` (chỉ log panic vào file)
+
+### 1.1 Build Modes: Development vs Production
+
+GoErrorKit hỗ trợ 2 chế độ build với behavior khác nhau cho **debug/trace logs**:
+
+#### 🔍 Development Mode (Debug Build)
+```bash
+# Build với debug mode (debug/trace logs hoạt động)
+go build -tags=debug -o app
+go run -tags=debug main.go
+```
+
+**Behavior:**
+- ✅ Debug logs hoạt động bình thường
+- ✅ Trace logs hoạt động bình thường
+- 📊 Output nhiều hơn, chi tiết hơn
+
+#### 🚀 Production Mode (Default Build)
+```bash
+# Build production (debug/trace logs bị loại bỏ hoàn toàn)
+go build -o app
+go run main.go
+```
+
+**Behavior:**
+- ❌ Debug logs là **no-op** (zero overhead)
+- ❌ Trace logs là **no-op** (zero overhead)
+- ✅ Info, warn, error, panic logs vẫn hoạt động
+- 🚀 Performance tốt hơn, binary nhỏ hơn
+
+**Example:**
+```go
+// Development build (-tags=debug): Sẽ log debug messages
+// Production build: Sẽ KHÔNG log gì (no-op, zero overhead)
+logger.Debug("Fetching user", map[string]interface{}{
+    "user_id": 123,
+})
+```
+
+📖 **Chi tiết:** Xem [docs/build-modes.md](docs/build-modes.md)
 
 ### 2. Cấu Hình Stack Trace
 
@@ -130,6 +179,48 @@ goerrorkit.Configure().
 - Dùng khi cần thêm skip patterns động (middleware, telemetry)
 - Chain nhiều cấu hình một lúc
 - `.Apply()` để áp dụng
+
+### 3. Log Levels - Phân Loại Mức Độ Nghiêm Trọng
+
+**Mặc định log level theo error type:**
+
+| Error Type | Default Level | Console | File (nếu FileLogLevel="error") |
+|-----------|---------------|---------|--------------------------------|
+| ValidationError | `warn` | ✅ | ❌ (bỏ qua, không nghiêm trọng) |
+| AuthError | `warn` | ✅ | ❌ (bỏ qua, không nghiêm trọng) |
+| BusinessError | `error` | ✅ | ✅ |
+| SystemError | `error` | ✅ | ✅ |
+| ExternalError | `error` | ✅ | ✅ |
+| PanicError | `panic` | ✅ | ✅ |
+
+**Override log level với `.Level()`:**
+
+```go
+// ValidationError mặc định là "warn", nhưng cần investigate
+if suspiciousInput(data) {
+    return goerrorkit.NewValidationError("Suspicious pattern", nil).
+        Level("error").  // Force log vào file
+        WithData(map[string]interface{}{"input": data})
+}
+
+// BusinessError cần chắc chắn ghi file
+if product.Stock < 0 {
+    return goerrorkit.NewBusinessError(500, "Negative stock").
+        Level("error").
+        WithData(map[string]interface{}{"product_id": product.ID})
+}
+
+// Chain với các methods khác
+return goerrorkit.NewSystemError(err).
+    WithData(map[string]interface{}{"db": "postgres"}).
+    Level("panic").  // Rất nghiêm trọng
+    WithCallChain()
+```
+
+**Lợi ích:**
+- ✅ File log sạch sẽ, chỉ chứa lỗi nghiêm trọng cần investigate
+- ✅ Validation errors không làm nhiễu file log
+- ✅ Linh hoạt override khi cần thiết
 
 ## 📝 Các Loại Error & Tình Huống Sử Dụng
 

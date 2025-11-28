@@ -1,7 +1,6 @@
 package goerrorkit
 
 import (
-	"io"
 	"os"
 	"time"
 
@@ -10,28 +9,54 @@ import (
 )
 
 // LogrusLogger implement Logger interface sử dụng logrus
+// Hỗ trợ dual-level logging: console và file có thể có log level khác nhau
 type LogrusLogger struct {
-	logger *logrus.Logger
+	consoleLogger *logrus.Logger // Logger cho console
+	fileLogger    *logrus.Logger // Logger cho file (có thể nil nếu không dùng file)
 }
 
 // Error implements Logger
 func (l *LogrusLogger) Error(msg string, fields map[string]interface{}) {
-	l.logger.WithFields(fields).Error(msg)
+	if l.consoleLogger != nil {
+		l.consoleLogger.WithFields(fields).Error(msg)
+	}
+	if l.fileLogger != nil {
+		l.fileLogger.WithFields(fields).Error(msg)
+	}
 }
 
 // Info implements Logger
 func (l *LogrusLogger) Info(msg string, fields map[string]interface{}) {
-	l.logger.WithFields(fields).Info(msg)
+	if l.consoleLogger != nil {
+		l.consoleLogger.WithFields(fields).Info(msg)
+	}
+	if l.fileLogger != nil {
+		l.fileLogger.WithFields(fields).Info(msg)
+	}
 }
 
-// Debug implements Logger
-func (l *LogrusLogger) Debug(msg string, fields map[string]interface{}) {
-	l.logger.WithFields(fields).Debug(msg)
-}
+// Debug và Trace methods được implement trong:
+// - logrus_logger_debug.go (với build tag 'debug') - có đầy đủ logging
+// - logrus_logger_prod.go (mặc định, không có tag) - no-op cho performance
 
 // Warn implements Logger
 func (l *LogrusLogger) Warn(msg string, fields map[string]interface{}) {
-	l.logger.WithFields(fields).Warn(msg)
+	if l.consoleLogger != nil {
+		l.consoleLogger.WithFields(fields).Warn(msg)
+	}
+	if l.fileLogger != nil {
+		l.fileLogger.WithFields(fields).Warn(msg)
+	}
+}
+
+// Panic implements Logger
+func (l *LogrusLogger) Panic(msg string, fields map[string]interface{}) {
+	if l.consoleLogger != nil {
+		l.consoleLogger.WithFields(fields).Error(msg) // Log as Error, not Panic (không muốn panic thật)
+	}
+	if l.fileLogger != nil {
+		l.fileLogger.WithFields(fields).Error(msg)
+	}
 }
 
 // LoggerOptions cấu hình cho logger
@@ -57,8 +82,16 @@ type LoggerOptions struct {
 	// MaxAge - Số ngày giữ file log cũ
 	MaxAge int
 
-	// LogLevel - Level tối thiểu để log (debug, info, warn, error)
+	// LogLevel - Level tối thiểu để log ra console (trace, debug, info, warn, error, panic)
+	// LƯU Ý: trace và debug chỉ hoạt động khi build với -tags=debug
+	//        Production build sẽ bỏ qua hoàn toàn (zero overhead)
 	LogLevel string
+
+	// FileLogLevel - Level tối thiểu để log ra file (trace, debug, info, warn, error, panic)
+	// Mặc định sẽ dùng "error" để chỉ log các lỗi nghiêm trọng vào file
+	// VD: FileLogLevel = "error" -> chỉ log error và panic vào file, bỏ qua warn
+	// LƯU Ý: trace và debug chỉ hoạt động khi build với -tags=debug
+	FileLogLevel string
 }
 
 // DefaultLoggerOptions trả về cấu hình mặc định
@@ -71,38 +104,78 @@ func DefaultLoggerOptions() LoggerOptions {
 		MaxFileSize:   10,
 		MaxBackups:    5,
 		MaxAge:        30,
-		LogLevel:      "error",
+		LogLevel:      "warn",  // Console log tất cả từ warn trở lên
+		FileLogLevel:  "error", // File chỉ log error và panic (bỏ qua warn)
 	}
 }
 
 // InitLogger khởi tạo logger với custom options
+// Hỗ trợ dual-level logging: console và file có thể có log level khác nhau
+//
+// LƯU Ý VỀ DEBUG/TRACE LOGS:
+//   - Debug và trace logs CHỈ hoạt động khi build với -tags=debug
+//   - Production build (không có tag): debug/trace là no-op (zero overhead)
+//   - Cách build: go build -tags=debug    (development)
+//     go build                  (production)
 //
 // Example:
 //
+//	// Development: LogLevel="debug" sẽ log debug messages
+//	// Production: LogLevel="debug" sẽ KHÔNG log gì (no-op)
 //	goerrorkit.InitLogger(goerrorkit.LoggerOptions{
 //	    ConsoleOutput: true,
 //	    FileOutput: true,
 //	    FilePath: "logs/app.log",
 //	    JSONFormat: true,
+//	    LogLevel: "debug",     // Development: log debug, Production: no-op
+//	    FileLogLevel: "error", // File chỉ log error và panic
 //	})
 func InitLogger(opts LoggerOptions) {
-	logger := logrus.New()
+	var consoleLogger *logrus.Logger
+	var fileLogger *logrus.Logger
 
-	// Cấu hình output destinations
-	var writers []io.Writer
-
-	// Console output
+	// Khởi tạo console logger
 	if opts.ConsoleOutput {
-		writers = append(writers, os.Stdout)
+		consoleLogger = logrus.New()
+		consoleLogger.SetOutput(os.Stdout)
+
+		// Cấu hình formatter cho console
+		if opts.JSONFormat {
+			consoleLogger.SetFormatter(&logrus.JSONFormatter{
+				TimestampFormat: time.RFC3339,
+				PrettyPrint:     true,
+				FieldMap: logrus.FieldMap{
+					logrus.FieldKeyTime:  "timestamp",
+					logrus.FieldKeyLevel: "level",
+					logrus.FieldKeyMsg:   "message",
+				},
+			})
+		} else {
+			consoleLogger.SetFormatter(&logrus.TextFormatter{
+				ForceColors:     true,
+				FullTimestamp:   true,
+				TimestampFormat: "2006-01-02 15:04:05",
+			})
+		}
+
+		// Set log level cho console
+		level, err := logrus.ParseLevel(opts.LogLevel)
+		if err != nil {
+			level = logrus.WarnLevel // Default warn cho console
+		}
+		consoleLogger.SetLevel(level)
 	}
 
-	// File output với rotation
+	// Khởi tạo file logger
 	if opts.FileOutput {
 		// Tạo thư mục logs nếu chưa có
 		if err := os.MkdirAll("logs", 0755); err != nil {
-			logrus.Errorf("Cannot create logs directory: %v", err)
+			if consoleLogger != nil {
+				consoleLogger.Errorf("Cannot create logs directory: %v", err)
+			}
 		}
 
+		fileLogger = logrus.New()
 		logFile := &lumberjack.Logger{
 			Filename:   opts.FilePath,
 			MaxSize:    opts.MaxFileSize,
@@ -111,17 +184,10 @@ func InitLogger(opts LoggerOptions) {
 			Compress:   true,
 			LocalTime:  true,
 		}
-		writers = append(writers, logFile)
-	}
+		fileLogger.SetOutput(logFile)
 
-	// Set output
-	if len(writers) > 0 {
-		logger.SetOutput(io.MultiWriter(writers...))
-	}
-
-	// Cấu hình formatter
-	if opts.JSONFormat {
-		logger.SetFormatter(&logrus.JSONFormatter{
+		// Cấu hình formatter cho file (luôn dùng JSON)
+		fileLogger.SetFormatter(&logrus.JSONFormatter{
 			TimestampFormat: time.RFC3339,
 			PrettyPrint:     true,
 			FieldMap: logrus.FieldMap{
@@ -130,26 +196,29 @@ func InitLogger(opts LoggerOptions) {
 				logrus.FieldKeyMsg:   "message",
 			},
 		})
-	} else {
-		logger.SetFormatter(&logrus.TextFormatter{
-			ForceColors:     true,
-			FullTimestamp:   true,
-			TimestampFormat: "2006-01-02 15:04:05",
-		})
-	}
 
-	// Set log level
-	level, err := logrus.ParseLevel(opts.LogLevel)
-	if err != nil {
-		level = logrus.ErrorLevel
+		// Set log level cho file
+		fileLogLevel := opts.FileLogLevel
+		if fileLogLevel == "" {
+			fileLogLevel = "error" // Default error cho file
+		}
+		fileLevel, err := logrus.ParseLevel(fileLogLevel)
+		if err != nil {
+			fileLevel = logrus.ErrorLevel
+		}
+		fileLogger.SetLevel(fileLevel)
 	}
-	logger.SetLevel(level)
 
 	// Wrap và set vào goerrorkit
-	logrusLogger := &LogrusLogger{logger: logger}
+	logrusLogger := &LogrusLogger{
+		consoleLogger: consoleLogger,
+		fileLogger:    fileLogger,
+	}
 	SetLogger(logrusLogger)
 
-	logger.Info("✓ GoErrorKit logger initialized")
+	if consoleLogger != nil {
+		consoleLogger.Info("✓ GoErrorKit logger initialized")
+	}
 }
 
 // InitDefaultLogger khởi tạo logger với cấu hình mặc định

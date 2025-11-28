@@ -10,10 +10,20 @@ type Logger interface {
 	Info(msg string, fields map[string]interface{})
 
 	// Debug logs debug level message với fields
+	// Lưu ý: Chỉ hoạt động khi build với tag -tags=debug
+	// Production build sẽ bỏ qua hoàn toàn (zero overhead)
 	Debug(msg string, fields map[string]interface{})
+
+	// Trace logs trace level message với fields
+	// Lưu ý: Chỉ hoạt động khi build với tag -tags=debug
+	// Production build sẽ bỏ qua hoàn toàn (zero overhead)
+	Trace(msg string, fields map[string]interface{})
 
 	// Warn logs warning level message với fields
 	Warn(msg string, fields map[string]interface{})
+
+	// Panic logs panic level message với fields
+	Panic(msg string, fields map[string]interface{})
 }
 
 // defaultLogger là logger mặc định (sẽ được set từ config package)
@@ -35,7 +45,7 @@ func GetLogger() Logger {
 }
 
 // LogError xử lý logging cho AppError
-// Sử dụng dual-logger strategy nếu được cấu hình
+// Sử dụng appropriate log level dựa trên error.GetLogLevel()
 func LogError(appErr *AppError, requestPath string) {
 	if defaultLogger == nil {
 		// Nếu chưa set logger, skip logging
@@ -63,8 +73,25 @@ func LogError(appErr *AppError, requestPath string) {
 		fields["cause"] = appErr.Cause.Error()
 	}
 
-	// Log error
-	defaultLogger.Error(appErr.Message, fields)
+	// Log với level phù hợp (trace, debug, info, warn, error, panic)
+	logLevel := appErr.GetLogLevel()
+	switch logLevel {
+	case "panic":
+		defaultLogger.Panic(appErr.Message, fields)
+	case "error":
+		defaultLogger.Error(appErr.Message, fields)
+	case "warn":
+		defaultLogger.Warn(appErr.Message, fields)
+	case "info":
+		defaultLogger.Info(appErr.Message, fields)
+	case "debug":
+		defaultLogger.Debug(appErr.Message, fields)
+	case "trace":
+		defaultLogger.Trace(appErr.Message, fields)
+	default:
+		// Default fallback to error
+		defaultLogger.Error(appErr.Message, fields)
+	}
 }
 
 // FormatErrorResponse tạo response data cho client

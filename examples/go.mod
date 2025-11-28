@@ -1,4 +1,4 @@
-module github.com/techmaster-vietnam/goerrorkit/examples/fiber-demo
+module github.com/techmaster-vietnam/goerrorkit/examples
 
 go 1.21
 
@@ -24,4 +24,4 @@ require (
 )
 
 // For local development, use replace directive
-replace github.com/techmaster-vietnam/goerrorkit => ../..
+replace github.com/techmaster-vietnam/goerrorkit => ..

@@ -26,6 +26,7 @@ type AppError struct {
 	Data      map[string]interface{} // Dữ liệu đặc thù của tình huống (product_id, user_id, etc.)
 	Cause     error                  // Lỗi gốc (nếu có)
 	RequestID string                 // Request ID để trace
+	logLevel  string                 // Custom log level (warn, error, panic) - private field
 }
 
 // Error implements error interface
@@ -76,6 +77,49 @@ func (e *AppError) WithCallChain() *AppError {
 	}
 	e.Details["call_chain"] = callChain
 	return e
+}
+
+// Level thiết lập custom log level cho error
+// Hỗ trợ fluent API và cho phép override log level mặc định
+// Valid levels: "trace", "debug", "info", "warn", "error", "panic"
+//
+// Example:
+//
+//	// ValidationError với log level warn (thay vì error mặc định)
+//	return goerrorkit.NewValidationError("Email không hợp lệ", nil).Level("warn")
+//
+//	// BusinessError nghiêm trọng với log level panic
+//	return goerrorkit.NewBusinessError(500, "Data corruption detected").Level("panic")
+//
+//	// Chain với các methods khác
+//	return goerrorkit.NewSystemError(err).
+//	    WithData(map[string]interface{}{"db": "postgres"}).
+//	    Level("panic").
+//	    WithCallChain()
+func (e *AppError) Level(level string) *AppError {
+	e.logLevel = level
+	return e
+}
+
+// GetLogLevel trả về log level của error
+// Nếu không có custom level, trả về level mặc định dựa trên ErrorType
+func (e *AppError) GetLogLevel() string {
+	// Nếu có custom level, dùng custom level
+	if e.logLevel != "" {
+		return e.logLevel
+	}
+
+	// Ngược lại, dùng log level mặc định theo error type
+	switch e.Type {
+	case ValidationError, AuthError:
+		return "warn"
+	case PanicError, SystemError:
+		return "error"
+	case BusinessError, ExternalError:
+		return "error"
+	default:
+		return "error"
+	}
 }
 
 // ============================================================================
